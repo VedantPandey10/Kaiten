@@ -34,6 +34,9 @@ reset by an administrator rather than by email.
 When the workspace has no administrator, the login page offers a separate
 one-time **Register as admin** flow. It immediately signs in the first admin;
 the API and database reject any subsequent admin registration or promotion.
+Admins land on the Admin Dashboard with **Pending Requests** and
+**Approved Tenants** views; approving a business owner activates that account
+and includes its company in the approved tenant list.
 The deployed sign-in page also allows users to request an account. New public
 registrations are created as inactive operators and must be activated by an
 administrator in People before they can sign in; first-admin bootstrap remains

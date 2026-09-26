@@ -1,0 +1,21 @@
+.admin-page { animation: rise-in .18s ease-out; }
+.admin-metrics { margin-bottom: 16px; }
+.admin-shortcuts { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin-top: 16px; }
+.admin-shortcut { display: grid; grid-template-columns: 1fr auto; gap: 11px; align-items: center; min-height: 94px; padding: 16px; border: 1px solid #e2e6df; border-radius: 7px; color: #43564a; background: #fbfcf9; text-align: left; cursor: pointer; }
+.admin-shortcut:hover { border-color: #cad8c4; background: #f5f7f2; }
+.admin-shortcut > span { display: flex; align-items: center; gap: 8px; color: #617765; font-size: 10px; }
+.admin-shortcut strong { grid-column: 1; font-size: 13px; font-weight: 600; }
+.admin-shortcut > svg { grid-column: 2; grid-row: 1 / span 2; color: #758b6e; }
+.admin-table-panel { overflow: hidden; border: 1px solid #e2e6df; border-radius: 7px; background: #fbfcf9; }
+.admin-table { width: 100%; border-collapse: collapse; text-align: left; }
+.admin-table th { height: 39px; padding: 0 14px; color: #89958a; font-family: var(--mono); font-size: 8px; font-weight: 400; white-space: nowrap; }
+.admin-table td { height: 58px; padding: 10px 14px; border-top: 1px solid #edf0ea; color: #5b6b60; font-size: 10px; }
+.admin-table td strong { display: block; color: #3e5346; font-size: 10px; font-weight: 600; }
+.admin-table td small { display: block; margin-top: 3px; color: #89958a; font-size: 9px; }
+.admin-table .approve-button { white-space: nowrap; }
+.admin-empty { display: flex; min-height: 180px; flex-direction: column; align-items: center; justify-content: center; gap: 9px; padding: 22px; color: #839084; font-size: 10px; text-align: center; }
+.admin-empty strong { color: #43564a; font-size: 13px; }
+.admin-empty svg { color: #71886f; }
+.tenant-status { display: inline-flex; align-items: center; gap: 7px; color: #53775b; font-size: 9px; }
+.tenant-status .status-pip { width: 6px; height: 6px; flex-basis: 6px; }
+@media (max-width: 700px) { .admin-shortcuts { grid-template-columns: minmax(0,1fr); } .admin-table { min-width: 620px; } }

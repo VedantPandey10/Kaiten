@@ -18,6 +18,7 @@ import './Dashboard.css'
 import './Workspace.css'
 import RecordCenter, { type RecordTab } from './Records'
 import { OperationsView, type OperationsPage } from './OperationsViews'
+import AdminView, { type AdminPage } from './AdminViews'
 
 const workflowStatus: Record<WorkflowStatus, string> = {
   CREATED: 'Draft', PLANNING: 'Planning', DATA_COLLECTION: 'Gathering data',
@@ -37,7 +38,7 @@ const roleNames: Record<Role, string> = {
 const allRoles: Role[] = ['ADMIN', 'OPERATOR', 'APPROVER', 'VIEWER']
 const taskKinds: TaskKind[] = ['GATHER', 'ANALYZE', 'RECOMMEND', 'APPROVAL', 'ACTION', 'MONITOR']
 const draftStatus: WorkflowStatus = 'CREATED'
-type WorkspaceView = 'command' | 'assistant' | 'workflows' | 'tasks' | 'approvals' | 'finance' | 'support' | 'documents' | 'communications' | 'analytics' | 'audit'
+type WorkspaceView = 'admin-dashboard' | 'pending-requests' | 'approved-tenants' | 'command' | 'assistant' | 'workflows' | 'tasks' | 'approvals' | 'finance' | 'support' | 'documents' | 'communications' | 'analytics' | 'audit'
 type WorkflowFilter = 'ALL' | 'RUNNING' | 'WAITING' | 'FAILED' | 'ESCALATED' | 'COMPLETED' | 'CANCELLED'
 const rememberedToken = localStorage.getItem('kaiten.accessToken')
 const sessionToken = sessionStorage.getItem('kaiten.accessToken')
@@ -88,7 +89,10 @@ function Workspace() {
   useEffect(() => {
     if (!token) return
     setAccessToken(token)
-    getCurrentUser().then(setUser).catch(() => {
+    getCurrentUser().then((currentUser) => {
+      setUser(currentUser)
+      if (currentUser.role === 'ADMIN') setActiveView('admin-dashboard')
+    }).catch(() => {
       sessionStorage.removeItem('kaiten.accessToken')
       localStorage.removeItem('kaiten.accessToken')
       setAccessToken(null)
@@ -145,6 +149,7 @@ function Workspace() {
     setAccessToken(session.access_token)
     setToken(session.access_token)
     setUser(session.user)
+    if (session.user.role === 'ADMIN') setActiveView('admin-dashboard')
     setLoading(true)
     setError(null)
   }
@@ -222,7 +227,9 @@ function Workspace() {
   const recordsView = activeView === 'finance' || activeView === 'support' || activeView === 'documents' || activeView === 'communications'
   const recordTab: RecordTab = activeView === 'support' ? 'tickets' : activeView === 'documents' ? 'contracts' : activeView === 'communications' ? 'communications' : 'invoices'
   const operationsPage: OperationsPage | null = activeView === 'tasks' || activeView === 'approvals' || activeView === 'audit' || activeView === 'analytics' ? activeView : null
+  const adminPage: AdminPage | null = activeView === 'admin-dashboard' || activeView === 'pending-requests' || activeView === 'approved-tenants' ? activeView : null
   const viewTitles: Record<WorkspaceView, string> = {
+    'admin-dashboard': 'Admin Dashboard', 'pending-requests': 'Pending Requests', 'approved-tenants': 'Approved Tenants',
     command: 'Command Center', assistant: 'AI Command', workflows: 'Workflows',
     tasks: 'Tasks', approvals: 'Approvals', finance: 'Finance', support: 'Support',
     documents: 'Documents & Data Sources', communications: 'Communications',
@@ -251,6 +258,13 @@ function Workspace() {
       { view: 'audit' as const, label: 'Audit & Activity', icon: <ScrollText size={16} /> },
     ] },
   ]
+  const sidebarGroups: { label: string; items: { view: WorkspaceView; label: string; icon: ReactNode; count?: number }[] }[] = user.role === 'ADMIN'
+    ? [{ label: 'TENANT ADMIN', items: [
+      { view: 'admin-dashboard' as const, label: 'Admin Dashboard', icon: <ShieldCheck size={16} /> },
+      { view: 'pending-requests' as const, label: 'Pending Requests', icon: <Clock3 size={16} /> },
+      { view: 'approved-tenants' as const, label: 'Approved Tenants', icon: <Users size={16} /> },
+    ] }, ...navigationGroups]
+    : navigationGroups
 
   return (
     <div className="app-shell">
@@ -258,7 +272,7 @@ function Workspace() {
         <a className="brand" href="#overview" aria-label="Kaiten overview"><span className="brand-mark"><Layers3 size={18} /></span><span>kaiten<span className="brand-period">.</span></span></a>
         <div className="workspace-label">SIGNED IN AS</div>
         <div className="workspace-switcher"><span className="workspace-avatar">{user.name.slice(0, 1).toUpperCase()}</span><span><strong>{user.name}</strong><small>{user.company}</small></span></div>
-        <nav className="side-nav" aria-label="Main navigation">{navigationGroups.map((group) => <div className="nav-group" key={group.label}><span className="nav-caption">{group.label}</span>{group.items.map((item) => <button className={`nav-item nav-button ${activeView === item.view ? 'active' : ''}`} key={item.view} onClick={() => setActiveView(item.view)} type="button">{item.icon}{item.label}{item.count !== undefined && <span className="nav-count">{item.count}</span>}</button>)}</div>)}{user.role === 'ADMIN' && <div className="nav-group"><span className="nav-caption">ADMIN</span><button className="nav-item nav-button" onClick={() => { setError(null); setModal('users'); void listUsers().then(setUsers).catch((cause) => setError(cause.message)) }} type="button"><Users size={16} />People</button></div>}</nav>
+        <nav className="side-nav" aria-label="Main navigation">{sidebarGroups.map((group) => <div className="nav-group" key={group.label}><span className="nav-caption">{group.label}</span>{group.items.map((item) => <button className={`nav-item nav-button ${activeView === item.view ? 'active' : ''}`} key={item.view} onClick={() => setActiveView(item.view)} type="button">{item.icon}{item.label}{item.count !== undefined && <span className="nav-count">{item.count}</span>}</button>)}</div>)}{user.role === 'ADMIN' && <div className="nav-group"><span className="nav-caption">ADMIN</span><button className="nav-item nav-button" onClick={() => { setError(null); setModal('users'); void listUsers().then(setUsers).catch((cause) => setError(cause.message)) }} type="button"><Users size={16} />People</button></div>}</nav>
         <div className="sidebar-bottom"><div className="side-status"><span className="status-pip" />Signed in · {roleNames[user.role]}</div><button className="signout-button" onClick={signOut} type="button"><LogOut size={14} />Sign out</button></div>
       </aside>
 
@@ -266,7 +280,8 @@ function Workspace() {
         <header className="topbar"><div className="breadcrumbs"><span>{user.name}</span><span className="crumb-divider">/</span><strong>{viewTitles[activeView]}</strong></div><div className="topbar-actions"><span className="role-chip">{roleNames[user.role]}</span><span className="user-avatar" title={user.email}>{user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><button className="topbar-signout" onClick={signOut} type="button" aria-label="Sign out"><LogOut size={15} /></button></div></header>
         <div className="page-content">
           {error && <div className="notice notice-error" role="alert"><CircleAlert size={17} /><span>{error}</span><button className="icon-button" onClick={() => setError(null)} type="button" aria-label="Dismiss error"><X size={15} /></button></div>}
-          {recordsView ? <RecordCenter key={activeView} title={viewTitles[activeView]} user={user} initialTab={recordTab} onError={setError} />
+          {adminPage ? <AdminView key={adminPage} page={adminPage} onNavigate={setActiveView} />
+            : recordsView ? <RecordCenter key={activeView} title={viewTitles[activeView]} user={user} initialTab={recordTab} onError={setError} />
             : operationsPage ? <OperationsView key={operationsPage} page={operationsPage} user={user} />
               : activeView === 'assistant' ? <BusinessCommand busy={busy} writable={canOperate} onCreate={handleCommandCreate} /> : <>
           <section className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line" />{activeView === 'command' ? 'BUSINESS OPERATIONS' : 'WORKSPACE'}</div><h1>{activeView === 'command' ? 'Command Center' : 'Workflows'}<span className="heading-comma">.</span></h1><p className="page-subtitle">{activeView === 'command' ? 'Active workflows, approvals, and support SLA risks across your workspace.' : 'Browse plans, execution state, and workflow audit history.'}</p></div>{canOperate && <button className="primary-button" onClick={() => { setEditingWorkflow(null); setModal('workflow') }} type="button"><FilePlus2 size={16} />New workflow</button>}</section>
