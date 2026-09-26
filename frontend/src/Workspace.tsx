@@ -331,10 +331,10 @@ function BusinessCommand({ busy, writable, onCreate }: { busy: boolean; writable
 }
 
 function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession, rememberMe: boolean) => void }) {
-  type AuthMode = 'login' | 'bootstrap' | 'register' | 'admin-register'
+  type AuthMode = 'login' | 'admin-login' | 'bootstrap' | 'register' | 'admin-register'
   const [mode, setMode] = useState<AuthMode>(() => {
     const query = new URLSearchParams(window.location.search)
-    return query.get('admin-register') === '1' ? 'admin-register' : query.get('register') === '1' ? 'register' : 'login'
+    return query.get('admin-register') === '1' ? 'admin-register' : query.get('admin-login') === '1' ? 'admin-login' : query.get('register') === '1' ? 'register' : 'login'
   })
   const [name, setName] = useState('')
   const [company, setCompany] = useState('')
@@ -361,8 +361,10 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession,
     const url = new URL(window.location.href)
     url.searchParams.delete('register')
     url.searchParams.delete('admin-register')
+    url.searchParams.delete('admin-login')
     if (nextMode === 'register') url.searchParams.set('register', '1')
     if (nextMode === 'admin-register') url.searchParams.set('admin-register', '1')
+    if (nextMode === 'admin-login') url.searchParams.set('admin-login', '1')
     window.history.pushState({}, '', url)
     setMode(nextMode)
     setError(null)
@@ -371,7 +373,8 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession,
 
   useEffect(() => {
     const syncModeFromUrl = () => {
-      setMode(new URLSearchParams(window.location.search).get('register') === '1' ? 'register' : 'login')
+      const query = new URLSearchParams(window.location.search)
+      setMode(query.get('admin-register') === '1' ? 'admin-register' : query.get('admin-login') === '1' ? 'admin-login' : query.get('register') === '1' ? 'register' : 'login')
       setError(null)
       setSuccess(null)
     }
@@ -400,6 +403,9 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession,
       const session = mode === 'bootstrap'
         ? await bootstrapAdmin({ name, company, email, password })
         : await login(email, password)
+      if (mode === 'admin-login' && session.user.role !== 'ADMIN') {
+        throw new Error('This sign-in is for workspace administrators.')
+      }
       onAuthenticated(session, rememberMe)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Authentication failed.')
@@ -408,13 +414,29 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession,
     }
   }
 
-    return <main className="auth-page"><div className="auth-art"><div className="auth-brand"><span className="brand-mark"><Layers3 size={19} /></span>kaiten<span className="brand-period">.</span></div><div className="auth-art-copy"><span className="auth-overline">BUSINESS WORKFLOW AUTOMATION</span><h1>Keep work moving.<br /><em>Keep every step visible.</em></h1><p>From an objective to an approved action, with a record of what happened and why.</p></div><div className="auth-art-foot">MULTI-STEP WORKFLOWS <span>·</span> HUMAN APPROVAL <span>·</span> AUDITABLE ACTIONS</div></div><div className="auth-form-side">{mode === 'register' || mode === 'admin-register' || mode === 'bootstrap' ? <button className="auth-corner-button" onClick={() => changeMode('login')} type="button">Back to sign in</button> : adminRegistrationAvailable ? <button className="auth-corner-button" onClick={() => changeMode('admin-register')} type="button">Register as admin</button> : <button className="auth-corner-button" onClick={() => changeMode('register')} type="button">Request access</button>}<form className="auth-form" onSubmit={(event) => void submit(event)}><div className="auth-mobile-brand"><span className="brand-mark"><Layers3 size={18} /></span> kaiten</div><div className="section-kicker">SECURE WORKSPACE</div><h2>{mode === 'bootstrap' ? 'Set up your workspace' : mode === 'admin-register' ? 'Register administrator' : mode === 'register' ? 'Request workspace access' : 'Welcome back'}</h2><p className="auth-description">{mode === 'bootstrap' ? 'Create the first administrator account to initialize role-based access.' : mode === 'admin-register' ? 'Register the workspace administrator. This one-time registration is immediately active.' : mode === 'register' ? 'Create an account request. A workspace administrator must activate it before you can sign in.' : 'Sign in to manage your workflows and approvals.'}</p>{error && <div className="auth-error" role="alert"><CircleAlert size={16} />{error}</div>}{success && <div className="auth-success" role="status">{success}</div>}
+    return <main className="auth-page">
+      <div className="auth-art">
+        <div className="auth-brand"><span className="brand-mark"><Layers3 size={19} /></span>kaiten<span className="brand-period">.</span></div>
+        <div className="auth-art-copy"><span className="auth-overline">BUSINESS WORKFLOW AUTOMATION</span><h1>Keep work moving.<br /><em>Keep every step visible.</em></h1><p>From an objective to an approved action, with a record of what happened and why.</p></div>
+        <div className="auth-art-foot">MULTI-STEP WORKFLOWS <span>·</span> HUMAN APPROVAL <span>·</span> AUDITABLE ACTIONS</div>
+      </div>
+      <div className="auth-form-side">
+        <button className="auth-corner-button" onClick={() => changeMode(mode === 'admin-login' ? 'login' : 'admin-login')} type="button">{mode === 'admin-login' ? 'Back to sign in' : 'Admin login'}</button>
+        <form className="auth-form" onSubmit={(event) => void submit(event)}>
+          <div className="auth-mobile-brand"><span className="brand-mark"><Layers3 size={18} /></span> kaiten</div>
+          <div className="section-kicker">SECURE WORKSPACE</div>
+          <h2>{mode === 'bootstrap' ? 'Set up your workspace' : mode === 'admin-register' ? 'Register administrator' : mode === 'register' ? 'Request workspace access' : mode === 'admin-login' ? 'Administrator sign in' : 'Welcome back'}</h2>
+          <p className="auth-description">{mode === 'bootstrap' ? 'Create the first administrator account to initialize role-based access.' : mode === 'admin-register' ? 'Register the workspace administrator. This one-time registration is immediately active.' : mode === 'register' ? 'Create an account request. A workspace administrator must activate it before you can sign in.' : mode === 'admin-login' ? 'Sign in with your workspace administrator account to review tenant requests.' : 'Sign in to manage your workflows and approvals.'}</p>
+          {error && <div className="auth-error" role="alert"><CircleAlert size={16} />{error}</div>}
+          {success && <div className="auth-success" role="status">{success}</div>}
       {(mode === 'bootstrap' || mode === 'register' || mode === 'admin-register') && <label>Full name<input autoComplete="name" onChange={(event) => setName(event.target.value)} required value={name} /></label>}
       {(mode === 'bootstrap' || mode === 'register' || mode === 'admin-register') && <label>Company<input autoComplete="organization" onChange={(event) => setCompany(event.target.value)} required value={company} /></label>}
       <label>Work email<input autoComplete="username" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} /></label>
-      <label>Password<input autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'login' ? undefined : 8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />{(mode === 'bootstrap' || mode === 'admin-register') && <small>At least 8 characters. This one-time admin account is active immediately.</small>}{mode === 'register' && <small>At least 8 characters. Access is pending admin approval.</small>}</label>
-      {mode === 'login' && <div className="auth-options"><label className="remember-me"><input checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} type="checkbox" />Remember me</label><span>Forgot password? Ask a workspace admin to reset it in People.</span></div>}
-      <button className="primary-button auth-submit" disabled={busy} type="submit">{busy ? <LoaderCircle className="spin" size={16} /> : mode === 'bootstrap' || mode === 'admin-register' ? <ShieldCheck size={16} /> : mode === 'register' ? <Users size={16} /> : <ArrowRight size={16} />}{mode === 'bootstrap' || mode === 'admin-register' ? 'Create administrator' : mode === 'register' ? 'Request access' : 'Sign in'}</button>
+      <label>Password<input autoComplete={mode === 'login' || mode === 'admin-login' ? 'current-password' : 'new-password'} minLength={mode === 'login' || mode === 'admin-login' ? undefined : 8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />{(mode === 'bootstrap' || mode === 'admin-register') && <small>At least 8 characters. This one-time admin account is active immediately.</small>}{mode === 'register' && <small>At least 8 characters. Access is pending admin approval.</small>}</label>
+      {(mode === 'login' || mode === 'admin-login') && <div className="auth-options"><label className="remember-me"><input checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} type="checkbox" />Remember me</label><span>Forgot password? Ask a workspace admin to reset it in People.</span></div>}
+      {mode === 'login' && <button className="owner-register-button" onClick={() => changeMode('register')} type="button">Register as owner</button>}
+      <button className="primary-button auth-submit" disabled={busy} type="submit">{busy ? <LoaderCircle className="spin" size={16} /> : mode === 'bootstrap' || mode === 'admin-register' ? <ShieldCheck size={16} /> : mode === 'register' ? <Users size={16} /> : <ArrowRight size={16} />}{mode === 'bootstrap' || mode === 'admin-register' ? 'Create administrator' : mode === 'register' ? 'Register as owner' : mode === 'admin-login' ? 'Admin sign in' : 'Sign in'}</button>
+      {mode === 'login' && adminRegistrationAvailable && <button className="auth-mode-button" onClick={() => changeMode('admin-register')} type="button">Register the first administrator</button>}
       {mode === 'login' && isLocalHost && <button className="auth-mode-button" onClick={() => changeMode('bootstrap')} type="button">First-time setup</button>}
     </form><div className="auth-security"><ShieldCheck size={14} />Roles are enforced by the API, not only by the interface.</div></div></main>
 }
