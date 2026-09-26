@@ -58,9 +58,9 @@ access. Supabase can host the PostgreSQL database; the React app should keep
 calling the Kaiten API rather than querying tables directly with
 `@supabase/supabase-js`.
 
-Copy the PostgreSQL connection URI from the Supabase dashboard's **Connect**
-panel (prefer the session pooler when the backend host cannot use IPv6) and
-set it as `KAITEN_SUPABASE_DATABASE_URL` in the backend host's environment.
+Copy the PostgreSQL session-pooler URI from the Supabase dashboard's **Connect**
+panel and set it as `KAITEN_SUPABASE_SESSION_POOLER_URL` in the backend host's
+environment. The backend prefers this IPv4-compatible URL for Supabase.
 Locally, `KAITEN_DATABASE_URL` remains the development database; production
 selects the Supabase URL when `KAITEN_ENV=production`. Use the database
 password from Supabase, URL-encoding any reserved characters. On startup the

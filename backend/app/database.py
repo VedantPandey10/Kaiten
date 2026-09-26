@@ -21,8 +21,10 @@ def create_database(database_url: str | None = None) -> tuple[Engine, sessionmak
     if database_url:
         url = database_url
     elif use_supabase:
-        url = os.getenv("KAITEN_SUPABASE_DATABASE_URL") or os.getenv(
-            "KAITEN_DATABASE_URL", "sqlite:///./kaiten.db"
+        url = (
+            os.getenv("KAITEN_SUPABASE_SESSION_POOLER_URL")
+            or os.getenv("KAITEN_SUPABASE_DATABASE_URL")
+            or os.getenv("KAITEN_DATABASE_URL", "sqlite:///./kaiten.db")
         )
     else:
         url = os.getenv("KAITEN_DATABASE_URL", "sqlite:///./kaiten.db")
