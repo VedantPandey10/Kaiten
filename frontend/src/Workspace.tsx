@@ -2,16 +2,16 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Activity, ArrowRight, BarChart3, Bot, Check, CircleAlert, Clock3,
   FilePlus2, FileText, Headphones, Layers3, ListTodo, LoaderCircle, LogOut,
-  KeyRound, Pencil, Plus, RefreshCw, Search, ShieldCheck, ScrollText, Trash2,
-  UserRoundCog, Users, X,
+  KeyRound, Pencil, Play, Plus, RefreshCw, Search, ShieldCheck, ScrollText, Sparkles, Trash2,
+  UserRoundCog, Users, X, Zap,
 } from 'lucide-react'
 import {
   approveTask, bootstrapAdmin, cancelWorkflow, completeTask, createTask,
   createUser, createWorkflow, deleteTask, deleteUser, deleteWorkflow,
   getAdminRegistrationStatus, getCurrentUser, getWorkflowAudit, listTasks, listTeam, listTickets, listUsers, listWorkflows,
-  login, registerAdmin, registerUser, rejectTask, resumeWorkflow, setAccessToken, startWorkflow, updateTask,
+  login, registerAdmin, registerUser, rejectTask, replanWorkflow, resumeWorkflow, setAccessToken, simulateWorkflow, startWorkflow, updateTask,
   updateUser, updateWorkflow,
-  type AuditEvent, type AuthSession, type Role, type TaskKind, type TaskPriority, type TaskStatus,
+  type AuditEvent, type AuthSession, type Role, type SimulationResponse, type TaskKind, type TaskPriority, type TaskStatus,
   type User, type Workflow, type WorkflowStatus, type WorkflowTask,
 } from './api'
 import './Dashboard.css'
@@ -75,7 +75,7 @@ function Workspace() {
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [modal, setModal] = useState<'workflow' | 'task' | 'users' | null>(null)
+  const [modal, setModal] = useState<'workflow' | 'task' | 'users' | 'simulate' | null>(null)
   const [resetTarget, setResetTarget] = useState<User | null>(null)
   const [editingWorkflow, setEditingWorkflow] = useState<Workflow | null>(null)
   const [editingTask, setEditingTask] = useState<WorkflowTask | null>(null)
@@ -284,7 +284,7 @@ function Workspace() {
             : recordsView ? <RecordCenter key={activeView} title={viewTitles[activeView]} user={user} initialTab={recordTab} onError={setError} />
             : operationsPage ? <OperationsView key={operationsPage} page={operationsPage} user={user} />
               : activeView === 'assistant' ? <BusinessCommand busy={busy} writable={canOperate} onCreate={handleCommandCreate} /> : <>
-          <section className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line" />{activeView === 'command' ? 'BUSINESS OPERATIONS' : 'WORKSPACE'}</div><h1>{activeView === 'command' ? 'Command Center' : 'Workflows'}<span className="heading-comma">.</span></h1><p className="page-subtitle">{activeView === 'command' ? 'Active workflows, approvals, and support SLA risks across your workspace.' : 'Browse plans, execution state, and workflow audit history.'}</p></div>{canOperate && <button className="primary-button" onClick={() => { setEditingWorkflow(null); setModal('workflow') }} type="button"><FilePlus2 size={16} />New workflow</button>}</section>
+          <section className="page-heading"><div><div className="eyebrow"><span className="eyebrow-line" />{activeView === 'command' ? 'BUSINESS OPERATIONS' : 'WORKSPACE'}</div><h1>{activeView === 'command' ? 'Command Center' : 'Workflows'}<span className="heading-comma">.</span></h1><p className="page-subtitle">{activeView === 'command' ? 'Active workflows, approvals, and support SLA risks across your workspace.' : 'Browse plans, execution state, and workflow audit history.'}</p></div>{canOperate && <div className="heading-actions-row"><button className="secondary-button sim-btn" onClick={() => setModal('simulate')} type="button"><Sparkles size={15} />Simulate Plan</button><button className="primary-button" onClick={() => { setEditingWorkflow(selected); setModal('workflow') }} type="button"><FilePlus2 size={16} />New workflow</button></div>}</section>
 
           {activeView === 'command' && <section className="metrics" aria-label="Command center summary"><Metric label="Active workflows" value={activeCount} hint="Not yet resolved" icon={<Activity size={16} />} tone="mint" /><Metric label="Awaiting approval" value={approvalCount} hint="Approver action" icon={<ShieldCheck size={16} />} tone="amber" /><Metric label="Resolved" value={resolvedCount} hint="Completed workflows" icon={<Check size={16} />} tone="blue" /><Metric label="SLA breached" value={slaBreachedCount} hint="Support tickets overdue" icon={<CircleAlert size={16} />} tone="rose" /></section>}
 
@@ -297,7 +297,7 @@ function Workspace() {
             </div>
 
             <aside className="detail-column"><section className="detail-panel"><div className="detail-heading"><div><div className="section-kicker">PERSISTED WORKFLOW PLAN</div><h2>Steps & activity</h2></div>{selected && canOperate && selected.status === draftStatus && <div className="detail-actions"><button className="icon-button" title="Edit workflow objective" onClick={() => { setEditingWorkflow(selected); setModal('workflow') }} type="button" aria-label="Edit workflow objective"><Pencil size={14} /></button><button className="icon-button danger-icon" title="Delete draft workflow" onClick={() => { if (window.confirm('Delete this draft workflow?')) void runAction(() => deleteWorkflow(selected.id)).then(() => { setWorkflows((items) => items.filter((item) => item.id !== selected.id)); setSelectedId(null) }) }} type="button" aria-label="Delete draft workflow"><Trash2 size={14} /></button></div>}</div>
-              {selected ? <><div className="selected-summary"><StatusBadge status={selected.status} /><p>{selected.objective}</p><span className="detail-created">Created {dateLabel(selected.created_at)}</span>{canOperate && selected.status === 'CREATED' && <button className="text-button start-plan-button" onClick={() => void runAction(() => startWorkflow(selected.id))} type="button">Generate step plan <ArrowRight size={14} /></button>}{canOperate && selected.status === 'WAITING_FOR_INPUT' && <button className="text-button start-plan-button" onClick={() => void runAction(() => resumeWorkflow(selected.id))} type="button">Recheck business records <RefreshCw size={13} /></button>}</div>
+              {selected ? <><div className="selected-summary"><StatusBadge status={selected.status} /><p>{selected.objective}</p><span className="detail-created">Created {dateLabel(selected.created_at)}</span>{canOperate && selected.status === 'CREATED' && <button className="text-button start-plan-button" onClick={() => void runAction(() => startWorkflow(selected.id))} type="button">Generate step plan <ArrowRight size={14} /></button>}{canOperate && selected.status === 'WAITING_FOR_INPUT' && <button className="text-button start-plan-button" onClick={() => void runAction(() => resumeWorkflow(selected.id))} type="button">Recheck business records <RefreshCw size={13} /></button>}{canOperate && !['RESOLVED', 'CANCELLED', 'CREATED'].includes(selected.status) && <button className="text-button start-plan-button replan-trigger-btn" disabled={busy} onClick={() => void runAction(() => replanWorkflow(selected.id))} type="button"><Zap size={13} />Re-evaluate State (Dynamic Replanner)</button>}</div>
                 {tasks.length > 0 && <div className="plan-list"><div className="plan-list-heading"><span>EXECUTION PLAN</span><span>{tasks.filter((task) => task.status === 'COMPLETED').length}/{tasks.length} DONE</span></div>{tasks.map((task) => <TaskRow key={task.id} task={task} user={user} team={team} busy={busy} canEdit={selected.status === 'CREATED'} canComplete={!['CREATED', 'WAITING_FOR_INPUT', 'RESOLVED', 'CANCELLED'].includes(selected.status) && (!task.assigned_to_id || task.assigned_to_id === user.id || user.role === 'ADMIN')} onComplete={() => void runAction(() => completeTask(task.id))} onApprove={() => void runAction(() => approveTask(task.id))} onReject={() => void runAction(() => rejectTask(task.id))} onEdit={() => { setEditingTask(task); setModal('task') }} onDelete={() => { if (window.confirm('Delete this task?')) void runAction(() => deleteTask(task.id)) }} />)}</div>}
                 {canOperate && selected.status === 'CREATED' && <button className="add-step-button" onClick={() => { setEditingTask(null); setModal('task') }} type="button"><Plus size={14} />Add workflow step</button>}
                 <div className="activity-list audit-list"><div className="plan-list-heading"><span>AUDIT TRAIL</span><span>{audit.length} EVENTS</span></div>{audit.length ? audit.map((event) => <AuditItem event={event} key={event.id} />) : <div className="activity-empty"><Clock3 size={16} /><span>No events recorded.</span></div>}</div></> : <div className="activity-empty no-selection"><Layers3 size={18} /><span>Select a workflow to inspect its plan and audit history.</span></div>}
@@ -311,7 +311,81 @@ function Workspace() {
       {modal === 'workflow' && <WorkflowDialog initial={editingWorkflow?.objective ?? ''} busy={busy} onClose={() => { setModal(null); setEditingWorkflow(null) }} onSave={handleWorkflowSave} />}
       {modal === 'task' && <TaskDialog initial={editingTask} team={team} busy={busy} onClose={() => { setModal(null); setEditingTask(null) }} onSave={handleTaskSave} />}
       {modal === 'users' && user.role === 'ADMIN' && <PeopleDialog users={users} companyName={user.company} onClose={() => setModal(null)} onError={setError} onReset={setResetTarget} onUsersChange={handleUsersChanged} />}
+      {modal === 'simulate' && <SimulationDialog onClose={() => setModal(null)} onCreate={handleCommandCreate} />}
       {resetTarget && <PasswordResetDialog user={resetTarget} onClose={() => setResetTarget(null)} onSave={async (password) => { await updateUser(resetTarget.id, { password }); setResetTarget(null) }} />}
+    </div>
+  )
+}
+
+function SimulationDialog({ onClose, onCreate }: { onClose: () => void; onCreate: (objective: string) => Promise<void> }) {
+  const [objective, setObjective] = useState('Find overdue invoices above INR 100,000, analyze customer history, contact customers, and escalate high-value cases.')
+  const [result, setResult] = useState<SimulationResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  async function handleSimulate() {
+    setLoading(true)
+    try {
+      const res = await simulateWorkflow(objective)
+      setResult(res)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal-card sim-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <div className="modal-title-row"><Sparkles size={18} /><h3>Workflow Dry-Run Simulator</h3></div>
+          <button className="icon-button" onClick={onClose} type="button"><X size={15} /></button>
+        </div>
+        <div className="modal-body">
+          <label className="objective-label">BUSINESS OBJECTIVE TO SIMULATE</label>
+          <textarea className="sim-textarea" onChange={(e) => setObjective(e.target.value)} value={objective} rows={3} />
+          <div className="sim-actions-bar">
+            <button className="primary-button sim-run-btn" disabled={loading} onClick={handleSimulate} type="button">
+              {loading ? <LoaderCircle size={14} className="spin" /> : <Play size={14} />} Run Dry-Run Simulation
+            </button>
+          </div>
+
+          {result && (
+            <div className="sim-results-panel">
+              <div className="sim-summary-row">
+                <span className="sim-pill">Domain: <strong>{result.domain}</strong></span>
+                <span className="sim-pill">Est. Time: <strong>{result.estimated_duration}</strong></span>
+                <span className="sim-pill">Approvals: <strong>{result.approvals_required}</strong></span>
+              </div>
+
+              {result.potential_risks.length > 0 && (
+                <div className="sim-risks-box">
+                  <strong>POTENTIAL RISKS & AUDIT CLAUSES:</strong>
+                  {result.potential_risks.map((r, i) => <div key={i}>{r}</div>)}
+                </div>
+              )}
+
+              <div className="sim-steps-list">
+                <strong>PLANNED EXECUTION STEPS ({result.expected_steps.length}):</strong>
+                {result.expected_steps.map((s, idx) => (
+                  <div className="sim-step-item" key={idx}>
+                    <span className="step-num">{idx + 1}</span>
+                    <div className="step-details">
+                      <strong>{s.title}</strong>
+                      <small>{s.description} · {s.estimated_duration}</small>
+                    </div>
+                    {s.requires_approval && <span className="approval-tag">APPROVAL REQUIRED</span>}
+                  </div>
+                ))}
+              </div>
+
+              <div className="sim-run-footer">
+                <button className="primary-button" onClick={() => { void onCreate(objective); onClose(); }} type="button">
+                  Create Real Workflow <ArrowRight size={15} />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }

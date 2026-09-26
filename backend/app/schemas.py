@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
@@ -93,6 +95,7 @@ class WorkflowRead(BaseModel):
     owner_id: UUID | None
     objective: str
     status: WorkflowStatus
+    context_data: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime
     updated_at: datetime
 
@@ -298,6 +301,10 @@ class TaskRead(BaseModel):
     priority: TaskPriority
     assigned_to_id: UUID | None
     due_at: datetime | None
+    retry_count: int = 0
+    max_retries: int = 3
+    fallback_channel: str | None = None
+    failure_reason: str | None = None
     result_data: dict[str, Any] | None
     created_at: datetime
     updated_at: datetime
@@ -312,3 +319,30 @@ class AuditEventRead(BaseModel):
     actor: str
     details: dict[str, Any]
     created_at: datetime
+
+
+class WorkflowSimulationRequest(BaseModel):
+    objective: str = Field(min_length=1, max_length=2000)
+
+
+class WorkflowSimulationStep(BaseModel):
+    title: str
+    kind: str
+    description: str
+    requires_approval: bool = False
+    estimated_duration: str = "30s"
+
+
+class WorkflowSimulationResponse(BaseModel):
+    objective: str
+    domain: str
+    expected_steps: list[WorkflowSimulationStep]
+    estimated_duration: str
+    approvals_required: int
+    potential_risks: list[str]
+    missing_evidence_fields: list[str]
+
+
+class SupplyInfoRequest(BaseModel):
+    field_name: str
+    field_value: str

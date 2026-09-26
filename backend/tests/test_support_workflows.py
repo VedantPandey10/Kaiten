@@ -1,4 +1,5 @@
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
+UTC = getattr(datetime, 'UTC', timezone.utc)
 
 import pytest
 from fastapi.testclient import TestClient

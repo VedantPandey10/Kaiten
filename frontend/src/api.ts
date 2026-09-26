@@ -27,6 +27,7 @@ export interface Workflow {
   owner_id: string | null
   objective: string
   status: WorkflowStatus
+  context_data?: Record<string, unknown>
   created_at: string
   updated_at: string
 }
@@ -43,6 +44,10 @@ export interface WorkflowTask {
   priority: TaskPriority
   assigned_to_id: string | null
   due_at: string | null
+  retry_count?: number
+  max_retries?: number
+  fallback_channel?: string
+  failure_reason?: string
   result_data: Record<string, unknown> | null
   created_at: string
   updated_at: string
@@ -207,3 +212,57 @@ export const createTicket = (ticket: Pick<SupportTicket, 'ticket_number' | 'subj
 export const updateTicket = (id: string, ticket: Partial<Pick<SupportTicket, 'subject' | 'description' | 'requester_email' | 'customer_id' | 'priority' | 'status' | 'sla_due_at' | 'assigned_to_id'>>) => request<SupportTicket>(`/api/tickets/${id}`, { method: 'PATCH', body: JSON.stringify(ticket) })
 export const deleteTicket = (id: string) => request<void>(`/api/tickets/${id}`, { method: 'DELETE' })
 export const listTicketEvents = (id: string) => request<{ id: number; ticket_id: string; event_type: string; actor: string; details: Record<string, unknown>; created_at: string }[]>(`/api/tickets/${id}/events`)
+
+export interface SimulationStep {
+  title: string
+  kind: string
+  description: string
+  requires_approval: boolean
+  estimated_duration: string
+}
+
+export interface SimulationResponse {
+  objective: string
+  domain: string
+  expected_steps: SimulationStep[]
+  estimated_duration: string
+  approvals_required: number
+  potential_risks: string[]
+  missing_evidence_fields: string[]
+}
+
+export const simulateWorkflow = (objective: string) => request<SimulationResponse>('/api/workflows/simulate', { method: 'POST', body: JSON.stringify({ objective }) })
+export const replanWorkflow = (workflowId: string) => request<Workflow>(`/api/workflows/${workflowId}/replan`, { method: 'POST' })
+export const supplyWorkflowInfo = (workflowId: string, field_name: string, field_value: string) => request<Workflow>(`/api/workflows/${workflowId}/supply-info`, { method: 'POST', body: JSON.stringify({ field_name, field_value }) })
+export const retryTask = (taskId: string) => request<WorkflowTask>(`/api/tasks/${taskId}/retry`, { method: 'POST' })
+export const failTask = (taskId: string) => request<WorkflowTask>(`/api/tasks/${taskId}/fail`, { method: 'POST' })
+
+export interface AgentTelemetry {
+  name: string
+  status: string
+  tasks_handled: number
+  success_rate: string
+  avg_latency: string
+  role: string
+}
+
+export interface IntegrationStatus {
+  name: string
+  status: string
+  latency: string
+  type: string
+}
+
+export interface SystemObservability {
+  agents: AgentTelemetry[]
+  integrations: IntegrationStatus[]
+  metrics: {
+    total_workflows: number
+    total_tasks: number
+    automation_rate: string
+    replanning_events: number
+    human_intervention_rate: string
+  }
+}
+
+export const getSystemObservability = () => request<SystemObservability>('/api/system/observability')

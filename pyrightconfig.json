@@ -1,0 +1,15 @@
+{
+  "executionEnvironments": [
+    {
+      "root": "backend",
+      "extraPaths": [
+        "backend",
+        "C:/python/lib/site-packages"
+      ]
+    }
+  ],
+  "extraPaths": [
+    "backend",
+    "C:/python/lib/site-packages"
+  ]
+}

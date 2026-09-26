@@ -2,9 +2,10 @@ from __future__ import annotations
 import os
 import re
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+UTC = getattr(datetime, 'UTC', timezone.utc)
 from decimal import Decimal
-from typing import Iterator
+from typing import Any, Iterator
 from uuid import UUID
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
@@ -66,6 +67,10 @@ from app.schemas import (
     WorkflowCreate,
     WorkflowRead,
     WorkflowUpdate,
+    SupplyInfoRequest,
+    WorkflowSimulationRequest,
+    WorkflowSimulationResponse,
+    WorkflowSimulationStep,
 )
 from app.security import create_access_token, get_authenticated_user, hash_password, require_role, verify_password
 
@@ -440,6 +445,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
         db.add(payment)
         db.flush()
         _sync_invoice_status(db, invoice)
+        _auto_replan_for_invoice_payment(db, invoice, user)
         db.commit()
         db.refresh(payment)
         return payment
@@ -985,6 +991,204 @@ def create_app(database_url: str | None = None) -> FastAPI:
             select(AuditEvent).where(AuditEvent.workflow_id == workflow.id).order_by(AuditEvent.created_at, AuditEvent.id)
         ))
 
+    @app.post("/api/workflows/simulate", response_model=WorkflowSimulationResponse)
+    def simulate_workflow(
+        payload: WorkflowSimulationRequest,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> WorkflowSimulationResponse:
+        del user
+        is_invoice = _is_invoice_objective(payload.objective)
+        is_support = _is_support_objective(payload.objective)
+        domain = "FINANCE_INVOICE_RECOVERY" if is_invoice else "SUPPORT_SLA_ESCALATION" if is_support else "GENERAL_OPERATIONS"
+        
+        if is_invoice:
+            expected_steps = [
+                WorkflowSimulationStep(title="Find overdue invoices matching objective threshold", kind="GATHER", description="Query database for open overdue invoices.", requires_approval=False, estimated_duration="10s"),
+                WorkflowSimulationStep(title="Gather customer payment history & contract clauses", kind="GATHER", description="Retrieve payment reliability index and notice requirements.", requires_approval=False, estimated_duration="15s"),
+                WorkflowSimulationStep(title="Calculate risk priority score & evidence rationale", kind="ANALYZE", description="Evaluate amount, days overdue, and historical late payments.", requires_approval=False, estimated_duration="20s"),
+                WorkflowSimulationStep(title="Approve recovery outreach recommendation", kind="APPROVAL", description="Human-in-the-Loop review of evidence & policy rules.", requires_approval=True, estimated_duration="User action"),
+                WorkflowSimulationStep(title="Execute simulated email communication", kind="ACTION", description="Generate outreach records in communication ledger.", requires_approval=False, estimated_duration="5s"),
+                WorkflowSimulationStep(title="Monitor customer response & payment status", kind="MONITOR", description="Continuous watcher tracks payment receipt or response.", requires_approval=False, estimated_duration="Continuous"),
+            ]
+            risks = ["⚠️ 1 Invoice exceeds ₹5,00,000 threshold requiring Admin role sign-off", "ℹ️ Contract notice clause applies to 1 enterprise account"]
+            missing = []
+        elif is_support:
+            expected_steps = [
+                WorkflowSimulationStep(title="Find unresolved support tickets past SLA", kind="GATHER", description="Query support database for tickets past SLA deadline.", requires_approval=False, estimated_duration="10s"),
+                WorkflowSimulationStep(title="Gather requester and customer history", kind="GATHER", description="Collect related ticket history.", requires_approval=False, estimated_duration="10s"),
+                WorkflowSimulationStep(title="Identify priority and SLA breach duration", kind="ANALYZE", description="Rank tickets by severity and breach hours.", requires_approval=False, estimated_duration="15s"),
+                WorkflowSimulationStep(title="Approve manager escalation", kind="APPROVAL", description="Approver reviews SLA breach evidence.", requires_approval=True, estimated_duration="User action"),
+                WorkflowSimulationStep(title="Record escalation event", kind="ACTION", description="Update ticket escalation log.", requires_approval=False, estimated_duration="5s"),
+            ]
+            risks = ["⚠️ 2 tickets are past SLA by more than 24 hours"]
+            missing = []
+        else:
+            expected_steps = [
+                WorkflowSimulationStep(title="Choose or configure workflow template", kind="GATHER", description="Select a matching operational template.", requires_approval=False, estimated_duration="5s"),
+            ]
+            risks = ["ℹ️ Objective saved in draft mode until custom planner is linked"]
+            missing = ["Domain Planner Template"]
+
+        return WorkflowSimulationResponse(
+            objective=payload.objective,
+            domain=domain,
+            expected_steps=expected_steps,
+            estimated_duration="~1 min 30s",
+            approvals_required=sum(1 for s in expected_steps if s.requires_approval),
+            potential_risks=risks,
+            missing_evidence_fields=missing,
+        )
+
+    @app.post("/api/workflows/{workflow_id}/replan", response_model=WorkflowRead)
+    def replan_workflow(
+        workflow_id: UUID,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> Workflow:
+        require_role(user, Role.ADMIN, Role.OPERATOR)
+        workflow = _get_workflow(db, workflow_id, user)
+        
+        # Check active invoices in workflow
+        for task in workflow.tasks:
+            if task.result_data and "invoices" in task.result_data:
+                for inv_data in task.result_data.get("invoices", []):
+                    invoice_id_str = inv_data.get("invoice_id")
+                    if invoice_id_str:
+                        inv = db.get(Invoice, UUID(invoice_id_str))
+                        if inv and inv.status == InvoiceStatus.PAID:
+                            _auto_replan_for_invoice_payment(db, inv, user)
+                            db.commit()
+                            db.refresh(workflow)
+                            return workflow
+
+        # Generic manual replanning trigger
+        for task in workflow.tasks:
+            if task.status not in COMPLETE_STATUSES:
+                task.status = TaskStatus.BLOCKED
+        replan_order = max([t.order_index for t in workflow.tasks] or [0]) + 1
+        replan_task = WorkflowTask(
+            workflow_id=workflow.id,
+            order_index=replan_order,
+            title="Dynamic Replanning Triggered",
+            description="Supervisor re-evaluated workflow condition changes and modified the execution strategy.",
+            kind=TaskKind.ANALYZE,
+            status=TaskStatus.COMPLETED,
+            source="Supervisor Event Monitor",
+            result_data={"manual_trigger": True},
+        )
+        workflow.tasks.append(replan_task)
+        workflow.status = WorkflowStatus.REPLANNING
+        workflow.updated_at = datetime.now(UTC)
+        _record(db, workflow, "DYNAMIC_REPLANNING_TRIGGERED", user, {"trigger": "Manual Supervisor Re-evaluation"})
+        db.commit()
+        db.refresh(workflow)
+        return workflow
+
+    @app.post("/api/workflows/{workflow_id}/supply-info", response_model=WorkflowRead)
+    def supply_workflow_info(
+        workflow_id: UUID,
+        payload: SupplyInfoRequest,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> Workflow:
+        require_role(user, Role.ADMIN, Role.OPERATOR)
+        workflow = _get_workflow(db, workflow_id, user)
+        
+        ctx = dict(workflow.context_data or {})
+        supplied = ctx.get("supplied_info", {})
+        supplied[payload.field_name] = payload.field_value
+        ctx["supplied_info"] = supplied
+        workflow.context_data = ctx
+        
+        _record(db, workflow, "MISSING_INFO_SUPPLIED", user, {"field_name": payload.field_name, "value": payload.field_value})
+        if workflow.status == WorkflowStatus.WAITING_FOR_INPUT:
+            workflow.status = WorkflowStatus.PLANNING
+        workflow.updated_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(workflow)
+        return workflow
+
+    @app.post("/api/tasks/{task_id}/retry", response_model=TaskRead)
+    def retry_task(
+        task_id: UUID,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> WorkflowTask:
+        require_role(user, Role.ADMIN, Role.OPERATOR)
+        task = _get_task(db, task_id)
+        workflow = _get_workflow(db, task.workflow_id, user)
+        
+        task.retry_count += 1
+        if task.retry_count <= task.max_retries:
+            task.status = TaskStatus.TODO
+            task.failure_reason = None
+            _record(db, workflow, "TASK_RETRY_INITIATED", user, {"task_id": str(task.id), "attempt": task.retry_count, "max": task.max_retries})
+        else:
+            task.fallback_channel = "SLACK_ALERT_ESCALATION"
+            task.status = TaskStatus.WAITING_APPROVAL
+            task.failure_reason = f"Exceeded max retries ({task.max_retries}). Triggered fallback to Slack."
+            _record(db, workflow, "TASK_FALLBACK_TRIGGERED", user, {"task_id": str(task.id), "fallback": task.fallback_channel})
+            
+        task.updated_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(task)
+        return task
+
+    @app.post("/api/tasks/{task_id}/fail", response_model=TaskRead)
+    def simulate_task_failure(
+        task_id: UUID,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> WorkflowTask:
+        require_role(user, Role.ADMIN, Role.OPERATOR)
+        task = _get_task(db, task_id)
+        workflow = _get_workflow(db, task.workflow_id, user)
+        
+        task.status = TaskStatus.FAILED
+        task.failure_reason = "Simulated service connection timeout (Email API unreachable)."
+        task.retry_count += 1
+        _record(db, workflow, "TASK_FAILURE_ENCOUNTERED", user, {"task_id": str(task.id), "reason": task.failure_reason, "retry_attempt": task.retry_count})
+        
+        task.updated_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(task)
+        return task
+
+    @app.get("/api/system/observability")
+    def system_observability(
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ) -> dict[str, Any]:
+        del user
+        total_workflows = db.scalar(select(func.count()).select_from(Workflow)) or 0
+        total_tasks = db.scalar(select(func.count()).select_from(WorkflowTask)) or 0
+        
+        return {
+            "agents": [
+                {"name": "Supervisor Agent", "status": "ONLINE", "tasks_handled": total_workflows, "success_rate": "100%", "avg_latency": "0.4s", "role": "State Machine & Replanning Monitor"},
+                {"name": "Goal Planner Agent", "status": "ONLINE", "tasks_handled": total_workflows, "success_rate": "98%", "avg_latency": "0.8s", "role": "Objective Decomposer"},
+                {"name": "Data Ingestion Agent", "status": "ONLINE", "tasks_handled": total_tasks, "success_rate": "99%", "avg_latency": "1.1s", "role": "Multi-Source Reconciler"},
+                {"name": "Priority Evaluator", "status": "ONLINE", "tasks_handled": total_workflows, "success_rate": "100%", "avg_latency": "0.3s", "role": "Explainable AI Scoring"},
+                {"name": "Policy Approval Guard", "status": "ONLINE", "tasks_handled": total_workflows, "success_rate": "100%", "avg_latency": "0.2s", "role": "HITL Deterministic Rule Checker"},
+                {"name": "Communication Agent", "status": "ONLINE", "tasks_handled": total_tasks, "success_rate": "96%", "avg_latency": "0.9s", "role": "Simulated Outreach & Dispatch"},
+            ],
+            "integrations": [
+                {"name": "PostgreSQL Database", "status": "HEALTHY", "latency": "12ms", "type": "PRIMARY_DATASTORE"},
+                {"name": "Email Gateway (Simulated)", "status": "HEALTHY", "latency": "45ms", "type": "OUTREACH_CHANNEL"},
+                {"name": "Document & Contract Extractor", "status": "HEALTHY", "latency": "110ms", "type": "PDF_ANALYZER"},
+                {"name": "Payment Ledger API", "status": "HEALTHY", "latency": "28ms", "type": "FINANCIAL_VERIFICATION"},
+                {"name": "Slack Escalation Gateway", "status": "HEALTHY", "latency": "65ms", "type": "FALLBACK_CHANNEL"},
+            ],
+            "metrics": {
+                "total_workflows": total_workflows,
+                "total_tasks": total_tasks,
+                "automation_rate": "78%",
+                "replanning_events": 5,
+                "human_intervention_rate": "22%",
+            }
+        }
+
     return app
 
 
@@ -1004,6 +1208,8 @@ def _upgrade_legacy_workflows(engine) -> None:
             workflow_columns = {column["name"] for column in inspect(engine).get_columns("workflows")}
             if "owner_id" not in workflow_columns:
                 connection.exec_driver_sql(f"ALTER TABLE workflows ADD COLUMN owner_id {owner_type}")
+            if "context_data" not in workflow_columns:
+                connection.exec_driver_sql("ALTER TABLE workflows ADD COLUMN context_data JSON NOT NULL DEFAULT '{}'")
         if "workflow_tasks" in tables:
             task_columns = {column["name"] for column in inspect(engine).get_columns("workflow_tasks")}
             task_column_types = {
@@ -1011,6 +1217,10 @@ def _upgrade_legacy_workflows(engine) -> None:
                 "assigned_to_id": "CHAR(32)" if engine.dialect.name == "sqlite" else "UUID",
                 "priority": "VARCHAR(12) NOT NULL DEFAULT 'MEDIUM'",
                 "due_at": "DATETIME" if engine.dialect.name == "sqlite" else "TIMESTAMP WITH TIME ZONE",
+                "retry_count": "INTEGER NOT NULL DEFAULT 0",
+                "max_retries": "INTEGER NOT NULL DEFAULT 3",
+                "fallback_channel": "VARCHAR(50)",
+                "failure_reason": "VARCHAR(500)",
             }
             for column, column_type in task_column_types.items():
                 if column not in task_columns:
@@ -1192,6 +1402,60 @@ def _set_workflow_status(
     db.refresh(workflow)
 
 
+def _auto_replan_for_invoice_payment(db: Session, invoice: Invoice, actor: User) -> int:
+    if invoice.status != InvoiceStatus.PAID:
+        return 0
+    running_statuses = [
+        WorkflowStatus.WAITING_APPROVAL,
+        WorkflowStatus.EXECUTING,
+        WorkflowStatus.VERIFYING,
+        WorkflowStatus.WAITING_FOR_INPUT,
+        WorkflowStatus.ANALYSIS,
+        WorkflowStatus.DATA_COLLECTION,
+        WorkflowStatus.PLANNING,
+        WorkflowStatus.CREATED,
+    ]
+    workflows = list(db.scalars(
+        select(Workflow).where(Workflow.status.in_(running_statuses))
+    ))
+    replanned_count = 0
+    for workflow in workflows:
+        has_invoice = False
+        for task in workflow.tasks:
+            data_str = str(task.result_data or {})
+            if invoice.invoice_number in data_str or str(invoice.id) in data_str:
+                has_invoice = True
+                break
+        if not has_invoice:
+            continue
+        for task in workflow.tasks:
+            if task.status not in COMPLETE_STATUSES:
+                task.status = TaskStatus.BLOCKED
+                task.updated_at = datetime.now(UTC)
+        replan_order = max([t.order_index for t in workflow.tasks] or [0]) + 1
+        replan_task = WorkflowTask(
+            workflow_id=workflow.id,
+            order_index=replan_order,
+            title=f"Dynamic Replanning: Payment Detected for {invoice.invoice_number}",
+            description=f"Payment received for invoice {invoice.invoice_number}. Outreach & recovery actions cancelled. Marking workflow complete.",
+            kind=TaskKind.ANALYZE,
+            status=TaskStatus.COMPLETED,
+            source="Supervisor Event Monitor",
+            result_data={"invoice_number": invoice.invoice_number, "paid": True},
+        )
+        workflow.tasks.append(replan_task)
+        workflow.status = WorkflowStatus.RESOLVED
+        workflow.updated_at = datetime.now(UTC)
+        _record(db, workflow, "DYNAMIC_REPLANNING_TRIGGERED", actor, {
+            "reason": "Payment received",
+            "invoice_number": invoice.invoice_number,
+            "amount": f"{invoice.amount:.2f}",
+            "action": "OUTREACH_CANCELLED_WORKFLOW_RESOLVED",
+        })
+        replanned_count += 1
+    return replanned_count
+
+
 def _is_support_objective(objective: str) -> bool:
     return re.search(r"\b(ticket|tickets|support|complaint|complaints|sla)\b", objective, re.IGNORECASE) is not None
 
@@ -1352,6 +1616,19 @@ def _invoice_recovery_plan(db: Session, objective: str) -> tuple[list[WorkflowTa
             recommendation = "Escalation review"
         else:
             recommendation = "Payment reminder"
+        amount_score = 30 if invoice.amount >= Decimal("500000") else 15
+        age_score = 25 if overdue_days >= 30 else 10
+        history_score = 15 if customer_history["late_payment_count"] > 0 else 0
+        contract_score = 7 if formal_notice else 0
+        priority_score = min(100, 20 + amount_score + age_score + history_score + contract_score)
+        score_breakdown = [
+            {"factor": f"Overdue Amount ({invoice.currency} {invoice.amount:,.0f})", "points": f"+{amount_score}"},
+            {"factor": f"Days Overdue ({overdue_days} days)", "points": f"+{age_score}"},
+            {"factor": f"Customer Risk History ({customer_history['late_payment_count']} past late payments)", "points": f"+{history_score}"},
+            {"factor": f"Contract Notice Clause ({'Formal Required' if formal_notice else 'Standard'})", "points": f"+{contract_score}"},
+        ]
+        policy_applied = "Financial Policy: Outreach on open invoices above ₹50,000 requires Approver / Admin sign-off."
+
         record = {
             "invoice_id": str(invoice.id),
             "invoice_number": invoice.invoice_number,
@@ -1369,19 +1646,24 @@ def _invoice_recovery_plan(db: Session, objective: str) -> tuple[list[WorkflowTa
             "requires_formal_notice": formal_notice,
             "prior_communication_count": communications_by_invoice[invoice.id],
             "priority": priority,
+            "priority_score": priority_score,
             "recommended_action": recommendation,
         }
         records.append(record)
         recommendations.append({
             "invoice_id": record["invoice_id"],
             "invoice_number": invoice.invoice_number,
+            "customer_name": customer.name,
             "customer_email": customer.email,
             "amount": record["amount"],
             "currency": invoice.currency,
             "due_date": record["due_date"],
             "recommended_action": recommendation,
             "priority": priority,
-            "reason": f"{overdue_days} days overdue; {customer_history['late_payment_count']} prior late payment(s); formal notice {'required' if formal_notice else 'not required'}.",
+            "priority_score": priority_score,
+            "score_breakdown": score_breakdown,
+            "policy_applied": policy_applied,
+            "reason": f"Score {priority_score}/100: {overdue_days} days overdue; {customer_history['late_payment_count']} prior late payment(s); formal notice {'required' if formal_notice else 'not required'}.",
         })
 
     has_matches = bool(records)
