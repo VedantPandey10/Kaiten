@@ -16,7 +16,16 @@ class Base(DeclarativeBase):
 
 
 def create_database(database_url: str | None = None) -> tuple[Engine, sessionmaker]:
-    url = database_url or os.getenv("KAITEN_DATABASE_URL", "sqlite:///./kaiten.db")
+    is_production = os.getenv("KAITEN_ENV", "development").lower() == "production"
+    use_supabase = is_production or os.getenv("KAITEN_DATABASE_TARGET", "local").lower() == "supabase"
+    if database_url:
+        url = database_url
+    elif use_supabase:
+        url = os.getenv("KAITEN_SUPABASE_DATABASE_URL") or os.getenv(
+            "KAITEN_DATABASE_URL", "sqlite:///./kaiten.db"
+        )
+    else:
+        url = os.getenv("KAITEN_DATABASE_URL", "sqlite:///./kaiten.db")
     if url.startswith("postgresql://"):
         url = url.replace("postgresql://", "postgresql+psycopg://", 1)
 

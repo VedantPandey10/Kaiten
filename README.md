@@ -51,6 +51,32 @@ The frontend calls the backend at `http://127.0.0.1:8000` by default. Set
 `VITE_API_URL` when the API is hosted elsewhere, and configure
 `KAITEN_CORS_ORIGINS` on the backend to allow that frontend origin.
 
+## Supabase and Hosted Deployment
+
+Kaiten uses its FastAPI/SQLAlchemy backend for authenticated, role-checked data
+access. Supabase can host the PostgreSQL database; the React app should keep
+calling the Kaiten API rather than querying tables directly with
+`@supabase/supabase-js`.
+
+Copy the PostgreSQL connection URI from the Supabase dashboard's **Connect**
+panel (prefer the session pooler when the backend host cannot use IPv6) and
+set it as `KAITEN_SUPABASE_DATABASE_URL` in the backend host's environment.
+Locally, `KAITEN_DATABASE_URL` remains the development database; production
+selects the Supabase URL when `KAITEN_ENV=production`. Use the database
+password from Supabase, URL-encoding any reserved characters. On startup the
+backend creates its tables and applies its existing additive workflow schema
+upgrades. Never put the database password or a service-role key in frontend
+variables or commit them to Git.
+
+Deploy the FastAPI backend separately from the Vercel frontend. Configure the
+backend with `KAITEN_DATABASE_URL`, a strong `KAITEN_JWT_SECRET`,
+`KAITEN_ENV=production`, and `KAITEN_CORS_ORIGINS` set to the deployed Vercel
+origin. Configure Vercel's project root as `frontend`, set
+`VITE_API_URL` to the deployed backend URL, and use `dist` as the output
+directory. Create the first administrator from a trusted local setup while
+the backend points to the Supabase database, before setting production mode;
+remote/production bootstrap is intentionally blocked.
+
 The MVP navigation includes Command Center, AI Command, Workflows, Tasks,
 Approvals, Finance records, Support tickets, Documents/Contracts, simulated
 Communications, Analytics, and Audit. Task assignment and deadlines are
