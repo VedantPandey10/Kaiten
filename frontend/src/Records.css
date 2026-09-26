@@ -1,0 +1,47 @@
+.records-page { animation: rise-in .2s ease-out; }
+.records-heading { display: flex; align-items: end; justify-content: space-between; gap: 15px; margin-bottom: 25px; }
+.records-heading h1 { margin-top: 13px; }
+.records-refresh { margin-bottom: 2px; }
+.records-panel { min-width: 0; overflow: hidden; border: 1px solid #e2e6df; border-radius: 7px; background: #fbfcf9; }
+.records-toolbar { display: flex; min-height: 57px; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 14px; border-bottom: 1px solid #e8ebe5; }
+.record-tabs { display: flex; min-width: 0; align-items: center; gap: 3px; overflow-x: auto; }
+.record-tab { display: inline-flex; min-height: 34px; flex: 0 0 auto; align-items: center; gap: 7px; padding: 0 10px; border: 0; border-radius: 4px; color: #79857b; background: transparent; font-size: 10px; cursor: pointer; }
+.record-tab:hover { color: #3c5647; background: #f2f5ef; }
+.record-tab.selected { color: #355340; background: #eaf0e5; font-weight: 600; }
+.record-tab span { color: #909c91; font-family: var(--mono); font-size: 8px; }
+.record-add { min-height: 33px; flex: 0 0 auto; padding: 0 10px; font-size: 9px; }
+.records-table-wrap { width: 100%; overflow-x: auto; }
+.records-table { min-width: 700px; }
+.records-table th { height: 39px; padding: 0 12px; border-bottom: 1px solid #eef0eb; }
+.records-table td { height: 54px; padding: 8px 12px; }
+.records-table .record-primary { color: #3a5043; font-size: 10px; font-weight: 600; }
+.record-amount { color: #43574a; font-family: var(--mono); font-size: 9px; }
+.record-tag,.invoice-state { display: inline-flex; min-height: 20px; align-items: center; padding: 0 7px; border: 1px solid #e1e7dc; border-radius: 4px; color: #667c63; background: #f2f6ef; font-size: 8px; }
+.record-tag.notice-required { border-color: #e9dfc5; color: #98753b; background: #fbf6e9; }
+.invoice-state.invoice-open { border-color: #e9dfc5; color: #99743a; background: #fbf6e9; }
+.invoice-state.invoice-paid { border-color: #d9e7d9; color: #557957; background: #eff6ed; }
+.record-actions { width: 77px; text-align: right; white-space: nowrap; }
+.record-actions .icon-button { width: 27px; height: 27px; margin-left: 4px; }
+.records-foot { display: flex; min-height: 37px; align-items: center; justify-content: space-between; padding: 0 13px; border-top: 1px solid #e8ebe5; color: #8e998f; font-family: var(--mono); font-size: 8px; }
+.records-empty { display: flex; min-height: 250px; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 25px; color: #89948a; font-size: 10px; text-align: center; }
+.records-empty .empty-symbol { margin: 0 0 5px; }
+.records-empty strong { color: #40564a; font-family: var(--display); font-size: 16px; font-weight: 500; }
+.records-empty p { max-width: 320px; line-height: 1.6; }
+.records-empty .text-button { margin-top: 6px; }
+.terms-cell { max-width: 270px; overflow: hidden; color: #808b82; text-overflow: ellipsis; white-space: nowrap; }
+.task-evidence { margin-top: 7px; border-top: 1px dashed #e5e9e1; padding-top: 5px; }
+.task-evidence summary { color: #617b60; font-size: 8px; cursor: pointer; }
+.task-evidence pre { max-height: 190px; overflow: auto; margin: 7px 0 2px; padding: 8px; border: 1px solid #e7ebe3; border-radius: 4px; color: #526256; background: #f5f7f2; font-family: var(--mono); font-size: 7px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.record-form { display: grid; gap: 12px; margin-top: 20px; }
+.notice-toggle { display: flex; align-items: center; gap: 8px; color: #5e6e61; font-size: 10px; }
+.notice-toggle input { accent-color: #527555; }
+@media (max-width: 700px) {
+  .records-heading { align-items: start; margin-bottom: 18px; }
+  .records-heading h1 { font-size: 27px; }
+  .records-toolbar { align-items: start; flex-direction: column; padding: 9px; }
+  .record-tabs { width: 100%; }
+  .record-tab { padding: 0 8px; font-size: 9px; }
+  .record-add { align-self: end; }
+  .records-table { min-width: 680px; }
+  .record-form .dialog-footer { align-items: start; flex-direction: column; }
+}
