@@ -31,6 +31,10 @@ blocked in production. The administrator creates accounts and assigns
 `OPERATOR`, `APPROVER`, or `VIEWER` roles in People, and can reset member
 passwords there. Login supports Remember me; forgotten passwords are currently
 reset by an administrator rather than by email.
+The deployed sign-in page also allows users to request an account. New public
+registrations are created as inactive operators and must be activated by an
+administrator in People before they can sign in; first-admin bootstrap remains
+localhost-only.
 Operators manage their own workflows and draft steps, maintain customer and
 finance records, and create/assign support tickets. Approvers can inspect
 workflows and decide pending actions. Viewers are read-only. Admins manage

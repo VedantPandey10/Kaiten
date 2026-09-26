@@ -86,6 +86,42 @@ def test_bootstrap_is_rejected_for_non_local_request(tmp_path, monkeypatch):
     assert response.status_code == 403
 
 
+def test_public_registration_waits_for_admin_activation(client, monkeypatch):
+    registration = {
+        "name": "New Operator",
+        "company": "Example Operations",
+        "email": "new.operator@example.com",
+        "password": "Strong-password-123!",
+    }
+    assert client.post("/api/auth/register", json=registration).status_code == 503
+
+    admin_token = bootstrap_admin(client)
+    monkeypatch.setenv("KAITEN_ENV", "production")
+    response = client.post("/api/auth/register", json=registration)
+    assert response.status_code == 202
+    assert "activate" in response.json()["detail"].lower()
+    assert client.post(
+        "/api/auth/login",
+        json={"email": registration["email"], "password": registration["password"]},
+    ).status_code == 401
+
+    users = client.get("/api/users", headers=auth(admin_token)).json()
+    pending = next(user for user in users if user["email"] == registration["email"])
+    assert pending["role"] == "OPERATOR"
+    assert pending["is_active"] is False
+
+    activated = client.patch(
+        f"/api/users/{pending['id']}", headers=auth(admin_token), json={"is_active": True}
+    )
+    assert activated.status_code == 200
+    login_response = client.post(
+        "/api/auth/login",
+        json={"email": registration["email"], "password": registration["password"]},
+    )
+    assert login_response.status_code == 200
+    assert login_response.json()["user"]["role"] == "OPERATOR"
+
+
 def test_rbac_and_workflow_crud(client):
     admin_token = bootstrap_admin(client)
     create_user(client, admin_token, "Invoice Operator", "operator@example.com", "OPERATOR")

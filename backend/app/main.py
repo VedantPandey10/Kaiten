@@ -140,6 +140,26 @@ def create_app(database_url: str | None = None) -> FastAPI:
         db.refresh(user)
         return TokenRead(access_token=create_access_token(user), user=user)
 
+    @app.post("/api/auth/register", status_code=status.HTTP_202_ACCEPTED)
+    def register_user(payload: UserBootstrap, db: Session = Depends(get_db)) -> dict[str, str]:
+        active_admin_exists = db.scalar(
+            select(func.count()).select_from(User).where(
+                User.role == Role.ADMIN, User.is_active.is_(True)
+            )
+        )
+        if not active_admin_exists:
+            raise HTTPException(
+                status_code=503,
+                detail="Workspace registration is unavailable until an administrator initializes the workspace.",
+            )
+        user = User(
+            name=payload.name.strip(), company=payload.company.strip(), email=str(payload.email).lower(),
+            password_hash=hash_password(payload.password), role=Role.OPERATOR, is_active=False,
+        )
+        db.add(user)
+        _commit_or_conflict(db, "An account with this email already exists.")
+        return {"detail": "Registration received. A workspace administrator must activate your account before you can sign in."}
+
     @app.post("/api/auth/login", response_model=TokenRead)
     def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenRead:
         user = db.scalar(select(User).where(User.email == str(payload.email).lower()))

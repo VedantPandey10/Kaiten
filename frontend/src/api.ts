@@ -137,6 +137,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const bootstrapAdmin = (payload: { name: string; company: string; email: string; password: string }) => request<AuthSession>('/api/auth/bootstrap', { method: 'POST', body: JSON.stringify(payload) })
+export const registerUser = (payload: { name: string; company: string; email: string; password: string }) => request<{ detail: string }>('/api/auth/register', { method: 'POST', body: JSON.stringify(payload) })
 export const login = (email: string, password: string) => request<AuthSession>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
 export const getCurrentUser = () => request<User>('/api/auth/me')
 export const listTeam = () => request<User[]>('/api/team')
