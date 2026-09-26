@@ -122,6 +122,38 @@ def test_public_registration_waits_for_admin_activation(client, monkeypatch):
     assert login_response.json()["user"]["role"] == "OPERATOR"
 
 
+def test_first_admin_can_register_publicly_once_and_logs_in_immediately(client, monkeypatch):
+    monkeypatch.setenv("KAITEN_ENV", "production")
+    assert client.get("/api/auth/admin-registration-status").json() == {"available": True}
+
+    response = client.post("/api/auth/register-admin", json={
+        "name": "First Admin", "company": "Example", "email": "first-admin@example.com",
+        "password": "Strong-password-123!",
+    })
+    assert response.status_code == 201
+    assert response.json()["user"]["role"] == "ADMIN"
+    assert response.json()["user"]["is_active"] is True
+    assert response.json()["access_token"]
+    assert client.get("/api/auth/admin-registration-status").json() == {"available": False}
+    assert client.post("/api/auth/register-admin", json={
+        "name": "Second Admin", "company": "Example", "email": "second-admin@example.com",
+        "password": "Strong-password-123!",
+    }).status_code == 409
+
+    admin_token = response.json()["access_token"]
+    second_admin = client.post("/api/users", headers=auth(admin_token), json={
+        "name": "Another Admin", "company": "Example", "email": "another-admin@example.com",
+        "password": "Strong-password-123!", "role": "ADMIN",
+    })
+    assert second_admin.status_code == 409
+
+    operator = create_user(client, admin_token, "Operator", "operator@example.com", "OPERATOR")
+    promote = client.patch(
+        f"/api/users/{operator['id']}", headers=auth(admin_token), json={"role": "ADMIN"}
+    )
+    assert promote.status_code == 409
+
+
 def test_rbac_and_workflow_crud(client):
     admin_token = bootstrap_admin(client)
     create_user(client, admin_token, "Invoice Operator", "operator@example.com", "OPERATOR")

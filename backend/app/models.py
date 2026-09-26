@@ -6,7 +6,7 @@ from enum import Enum
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import Boolean, Date, DateTime, Enum as SqlEnum, ForeignKey, JSON, Numeric, String, Uuid
+from sqlalchemy import Boolean, Date, DateTime, Enum as SqlEnum, ForeignKey, Index, JSON, Numeric, String, Uuid, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -90,6 +90,15 @@ def utc_now() -> datetime:
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        Index(
+            "uq_users_single_admin",
+            "role",
+            unique=True,
+            sqlite_where=text("role = 'ADMIN'"),
+            postgresql_where=text("role = 'ADMIN'"),
+        ),
+    )
 
     id: Mapped[UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid4)
     name: Mapped[str] = mapped_column(String(120), nullable=False)

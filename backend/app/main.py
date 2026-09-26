@@ -81,6 +81,9 @@ def create_app(database_url: str | None = None) -> FastAPI:
     async def lifespan(_: FastAPI):
         Base.metadata.create_all(bind=engine)
         _upgrade_legacy_workflows(engine)
+        for index in User.__table__.indexes:
+            if index.name == "uq_users_single_admin":
+                index.create(bind=engine, checkfirst=True)
         yield
         engine.dispose()
 
@@ -140,6 +143,41 @@ def create_app(database_url: str | None = None) -> FastAPI:
         db.refresh(user)
         return TokenRead(access_token=create_access_token(user), user=user)
 
+    @app.get("/api/auth/admin-registration-status")
+    def admin_registration_status(db: Session = Depends(get_db)) -> dict[str, bool]:
+        admin_exists = db.scalar(
+            select(func.count()).select_from(User).where(User.role == Role.ADMIN)
+        )
+        return {"available": not bool(admin_exists)}
+
+    @app.post("/api/auth/register-admin", response_model=TokenRead, status_code=status.HTTP_201_CREATED)
+    def register_first_admin(payload: UserBootstrap, db: Session = Depends(get_db)) -> TokenRead:
+        admin_exists = db.scalar(
+            select(func.count()).select_from(User).where(User.role == Role.ADMIN)
+        )
+        if admin_exists:
+            raise HTTPException(status_code=409, detail="Administrator registration has already been completed.")
+        user = User(
+            name=payload.name.strip(), company=payload.company.strip(), email=str(payload.email).lower(),
+            password_hash=hash_password(payload.password), role=Role.ADMIN, is_active=True,
+        )
+        try:
+            db.add(user)
+            db.flush()
+            if os.getenv("KAITEN_SEED_DEMO_DATA", "true").lower() not in {"0", "false", "no"}:
+                _seed_demo_workspace(db, user)
+            db.commit()
+        except IntegrityError as error:
+            db.rollback()
+            admin_exists = db.scalar(
+                select(func.count()).select_from(User).where(User.role == Role.ADMIN)
+            )
+            if admin_exists:
+                raise HTTPException(status_code=409, detail="Administrator registration has already been completed.") from error
+            raise HTTPException(status_code=409, detail="An account with this email already exists.") from error
+        db.refresh(user)
+        return TokenRead(access_token=create_access_token(user), user=user)
+
     @app.post("/api/auth/register", status_code=status.HTTP_202_ACCEPTED)
     def register_user(payload: UserBootstrap, db: Session = Depends(get_db)) -> dict[str, str]:
         active_admin_exists = db.scalar(
@@ -187,6 +225,12 @@ def create_app(database_url: str | None = None) -> FastAPI:
         payload: UserCreate, user: User = Depends(get_current_user), db: Session = Depends(get_db)
     ) -> User:
         require_role(user, Role.ADMIN)
+        if payload.role is Role.ADMIN:
+            admin_exists = db.scalar(
+                select(func.count()).select_from(User).where(User.role == Role.ADMIN)
+            )
+            if admin_exists:
+                raise HTTPException(status_code=409, detail="Only one administrator is allowed.")
         created = User(
             name=payload.name.strip(), company=payload.company.strip(), email=str(payload.email).lower(),
             password_hash=hash_password(payload.password), role=payload.role,
@@ -206,6 +250,14 @@ def create_app(database_url: str | None = None) -> FastAPI:
         if target is None:
             raise HTTPException(status_code=404, detail="User not found.")
         changes = payload.model_dump(exclude_unset=True)
+        if changes.get("role") is Role.ADMIN and target.role is not Role.ADMIN:
+            admin_exists = db.scalar(
+                select(func.count()).select_from(User).where(
+                    User.role == Role.ADMIN, User.id != target.id
+                )
+            )
+            if admin_exists:
+                raise HTTPException(status_code=409, detail="Only one administrator is allowed.")
         if target.id == user.id and (changes.get("is_active") is False or changes.get("role") not in (None, Role.ADMIN)):
             raise HTTPException(status_code=409, detail="You cannot deactivate or demote your own admin account.")
         if changes.get("role") is not None and changes["role"] is not Role.ADMIN and target.role is Role.ADMIN:
