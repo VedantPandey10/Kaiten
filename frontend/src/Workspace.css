@@ -87,8 +87,8 @@
 .auth-form > label input:focus { border-color: #879b66; box-shadow: 0 0 0 3px #9aad791d; }
 .auth-form > label small { color: #959f96; font-size: 8px; font-weight: 400; }
 .auth-submit { width: 100%; margin-top: 22px; }
-.owner-register-button { display: block; width: 100%; min-height: 36px; margin-top: 18px; border: 1px solid #29453a; border-radius: 5px; color: #29453a; background: #f3f6f0; font-size: 10px; font-weight: 600; cursor: pointer; }
-.owner-register-button:hover { color: #fbfcf7; background: #29453a; }
+.owner-register-link { display: block; width: fit-content; margin: 12px auto -8px; padding: 4px 8px; color: #59755c; background: transparent; font-size: 10px; text-decoration: none; }
+.owner-register-link:hover { text-decoration: underline; }
 .auth-mode-button { display: block; margin: 15px auto 0; padding: 4px 8px; border: 0; color: #59755c; background: transparent; font-size: 10px; cursor: pointer; }
 .auth-error { display: flex; align-items: start; gap: 8px; padding: 10px; border: 1px solid #efd8d0; border-radius: 5px; color: #9b5947; background: #fcf1ed; font-size: 9px; line-height: 1.5; }
 .auth-error svg { flex: 0 0 auto; }
