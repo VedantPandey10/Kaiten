@@ -194,8 +194,22 @@ function Workspace() {
     setBusy(true)
     setError(null)
     try {
-      await handleWorkflowSave(objective)
+      const created = await createWorkflow(objective)
+      let finalWorkflow = created
+      try {
+        finalWorkflow = await startWorkflow(created.id)
+      } catch {
+        // If auto-start planner has no matching template, keep created draft
+      }
+      setWorkflows((items) => [finalWorkflow, ...items])
+      setSelectedId(finalWorkflow.id)
       setActiveView('workflows')
+      const [nextTasks, nextAudit] = await Promise.all([
+        listTasks(finalWorkflow.id),
+        getWorkflowAudit(finalWorkflow.id),
+      ])
+      setTasks(nextTasks)
+      setAudit(nextAudit)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'Could not create workflow.')
     } finally { setBusy(false) }
