@@ -347,16 +347,18 @@ function SimulationDialog({ onClose, onCreate }: { onClose: () => void; onCreate
   }
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal-card sim-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <div className="modal-title-row"><Sparkles size={18} /><h3>Workflow Dry-Run Simulator</h3></div>
-          <button className="icon-button" onClick={onClose} type="button"><X size={15} /></button>
+    <div className="modal-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose() }}>
+      <section className="create-dialog workspace-dialog sim-modal" role="dialog" aria-modal="true" aria-label="Workflow Dry-Run Simulator">
+        <div className="dialog-top">
+          <div className="dialog-icon"><Sparkles size={18} /></div>
+          <button className="icon-button" onClick={onClose} type="button" aria-label="Close dialog"><X size={16} /></button>
         </div>
-        <div className="modal-body">
-          <label className="objective-label">BUSINESS OBJECTIVE TO SIMULATE</label>
-          <textarea className="sim-textarea" onChange={(e) => setObjective(e.target.value)} value={objective} rows={3} />
-          <div className="sim-actions-bar">
+        <div className="section-kicker">WORKFLOW SIMULATOR</div>
+        <h2 style={{ fontSize: '22px', color: '#1e293b', marginTop: '4px', marginBottom: '14px' }}>Workflow Dry-Run Simulator</h2>
+        <div className="workspace-dialog-content">
+          <label className="form-label" htmlFor="sim-objective-input" style={{ fontWeight: 700, color: '#334155', display: 'block', marginBottom: '6px' }}>BUSINESS OBJECTIVE TO SIMULATE</label>
+          <textarea id="sim-objective-input" className="dialog-textarea" onChange={(e) => setObjective(e.target.value)} value={objective} rows={3} style={{ width: '100%', minHeight: '80px', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '11px', color: '#0f172a', background: '#ffffff', boxSizing: 'border-box' }} />
+          <div className="sim-actions-bar" style={{ marginTop: '12px', display: 'flex', justifyContent: 'flex-end' }}>
             <button className="primary-button sim-run-btn" disabled={loading} onClick={handleSimulate} type="button">
               {loading ? <LoaderCircle size={14} className="spin" /> : <Play size={14} />} Run Dry-Run Simulation
             </button>
@@ -399,7 +401,7 @@ function SimulationDialog({ onClose, onCreate }: { onClose: () => void; onCreate
             </div>
           )}
         </div>
-      </div>
+      </section>
     </div>
   )
 }
