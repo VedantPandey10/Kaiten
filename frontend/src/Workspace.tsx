@@ -316,7 +316,8 @@ function BusinessCommand({ busy, writable, onCreate }: { busy: boolean; writable
 }
 
 function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession, rememberMe: boolean) => void }) {
-  const [mode, setMode] = useState<'login' | 'bootstrap' | 'register'>('login')
+  type AuthMode = 'login' | 'bootstrap' | 'register'
+  const [mode, setMode] = useState<AuthMode>(() => new URLSearchParams(window.location.search).get('register') === '1' ? 'register' : 'login')
   const [name, setName] = useState('')
   const [company, setCompany] = useState('')
   const [email, setEmail] = useState('')
@@ -327,6 +328,26 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession,
   const [busy, setBusy] = useState(false)
   const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname)
 
+  function changeMode(nextMode: AuthMode) {
+    const url = new URL(window.location.href)
+    if (nextMode === 'register') url.searchParams.set('register', '1')
+    else url.searchParams.delete('register')
+    window.history.pushState({}, '', url)
+    setMode(nextMode)
+    setError(null)
+    setSuccess(null)
+  }
+
+  useEffect(() => {
+    const syncModeFromUrl = () => {
+      setMode(new URLSearchParams(window.location.search).get('register') === '1' ? 'register' : 'login')
+      setError(null)
+      setSuccess(null)
+    }
+    window.addEventListener('popstate', syncModeFromUrl)
+    return () => window.removeEventListener('popstate', syncModeFromUrl)
+  }, [])
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true)
@@ -335,9 +356,9 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession,
     try {
       if (mode === 'register') {
         const response = await registerUser({ name, company, email, password })
-        setSuccess(response.detail)
         setPassword('')
-        setMode('login')
+        changeMode('login')
+        setSuccess(response.detail)
         return
       }
       const session = mode === 'bootstrap'
@@ -351,14 +372,14 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession,
     }
   }
 
-    return <main className="auth-page"><div className="auth-art"><div className="auth-brand"><span className="brand-mark"><Layers3 size={19} /></span>kaiten<span className="brand-period">.</span></div><div className="auth-art-copy"><span className="auth-overline">BUSINESS WORKFLOW AUTOMATION</span><h1>Keep work moving.<br /><em>Keep every step visible.</em></h1><p>From an objective to an approved action, with a record of what happened and why.</p></div><div className="auth-art-foot">MULTI-STEP WORKFLOWS <span>·</span> HUMAN APPROVAL <span>·</span> AUDITABLE ACTIONS</div></div><div className="auth-form-side"><form className="auth-form" onSubmit={(event) => void submit(event)}><div className="auth-mobile-brand"><span className="brand-mark"><Layers3 size={18} /></span> kaiten</div><div className="section-kicker">SECURE WORKSPACE</div><h2>{mode === 'bootstrap' ? 'Set up your workspace' : mode === 'register' ? 'Request workspace access' : 'Welcome back'}</h2><p className="auth-description">{mode === 'bootstrap' ? 'Create the first administrator account to initialize role-based access.' : mode === 'register' ? 'Create an account request. A workspace administrator must activate it before you can sign in.' : 'Sign in to manage your workflows and approvals.'}</p>{error && <div className="auth-error" role="alert"><CircleAlert size={16} />{error}</div>}{success && <div className="auth-success" role="status">{success}</div>}
+    return <main className="auth-page"><div className="auth-art"><div className="auth-brand"><span className="brand-mark"><Layers3 size={19} /></span>kaiten<span className="brand-period">.</span></div><div className="auth-art-copy"><span className="auth-overline">BUSINESS WORKFLOW AUTOMATION</span><h1>Keep work moving.<br /><em>Keep every step visible.</em></h1><p>From an objective to an approved action, with a record of what happened and why.</p></div><div className="auth-art-foot">MULTI-STEP WORKFLOWS <span>·</span> HUMAN APPROVAL <span>·</span> AUDITABLE ACTIONS</div></div><div className="auth-form-side">{mode === 'register' ? <button className="auth-corner-button" onClick={() => changeMode('login')} type="button">Back to sign in</button> : mode === 'login' ? <button className="auth-corner-button" onClick={() => changeMode('register')} type="button">Request access</button> : <button className="auth-corner-button" onClick={() => changeMode('login')} type="button">Back to sign in</button>}<form className="auth-form" onSubmit={(event) => void submit(event)}><div className="auth-mobile-brand"><span className="brand-mark"><Layers3 size={18} /></span> kaiten</div><div className="section-kicker">SECURE WORKSPACE</div><h2>{mode === 'bootstrap' ? 'Set up your workspace' : mode === 'register' ? 'Request workspace access' : 'Welcome back'}</h2><p className="auth-description">{mode === 'bootstrap' ? 'Create the first administrator account to initialize role-based access.' : mode === 'register' ? 'Create an account request. A workspace administrator must activate it before you can sign in.' : 'Sign in to manage your workflows and approvals.'}</p>{error && <div className="auth-error" role="alert"><CircleAlert size={16} />{error}</div>}{success && <div className="auth-success" role="status">{success}</div>}
       {(mode === 'bootstrap' || mode === 'register') && <label>Full name<input autoComplete="name" onChange={(event) => setName(event.target.value)} required value={name} /></label>}
       {(mode === 'bootstrap' || mode === 'register') && <label>Company<input autoComplete="organization" onChange={(event) => setCompany(event.target.value)} required value={company} /></label>}
       <label>Work email<input autoComplete="username" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} /></label>
       <label>Password<input autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={mode === 'login' ? undefined : 8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />{mode === 'bootstrap' && <small>At least 8 characters. Demo workflows and business records will be seeded.</small>}{mode === 'register' && <small>At least 8 characters. Access is pending admin approval.</small>}</label>
       {mode === 'login' && <div className="auth-options"><label className="remember-me"><input checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} type="checkbox" />Remember me</label><span>Forgot password? Ask a workspace admin to reset it in People.</span></div>}
       <button className="primary-button auth-submit" disabled={busy} type="submit">{busy ? <LoaderCircle className="spin" size={16} /> : mode === 'bootstrap' ? <ShieldCheck size={16} /> : mode === 'register' ? <Users size={16} /> : <ArrowRight size={16} />}{mode === 'bootstrap' ? 'Create administrator' : mode === 'register' ? 'Request access' : 'Sign in'}</button>
-      {mode === 'login' ? <><button className="auth-mode-button" onClick={() => { setMode('register'); setError(null); setSuccess(null) }} type="button">Create account</button>{isLocalHost && <button className="auth-mode-button" onClick={() => { setMode('bootstrap'); setError(null); setSuccess(null) }} type="button">First-time setup</button>}</> : <button className="auth-mode-button" onClick={() => { setMode('login'); setError(null); setSuccess(null) }} type="button">Return to sign in</button>}
+      {mode === 'login' && isLocalHost && <button className="auth-mode-button" onClick={() => changeMode('bootstrap')} type="button">First-time setup</button>}
     </form><div className="auth-security"><ShieldCheck size={14} />Roles are enforced by the API, not only by the interface.</div></div></main>
 }
 
