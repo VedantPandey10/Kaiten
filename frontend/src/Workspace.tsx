@@ -797,10 +797,36 @@ function StatusBadge({ status }: { status: WorkflowStatus }) {
   return <span className={`status-badge tone-${tone}`}><span className="badge-dot" />{workflowStatus[status]}</span>
 }
 
+function formatEvidenceValue(value: any): string {
+  if (value === null || value === undefined) return 'N/A'
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No'
+  if (typeof value === 'number' || typeof value === 'string') return String(value)
+  if (Array.isArray(value)) {
+    return value.map((item) => typeof item === 'object' ? formatEvidenceObject(item) : String(item)).join(' · ')
+  }
+  if (typeof value === 'object') {
+    return formatEvidenceObject(value)
+  }
+  return String(value)
+}
+
+function formatEvidenceObject(obj: Record<string, any>): string {
+  if (!obj) return 'N/A'
+  return Object.entries(obj)
+    .filter(([_, val]) => val !== null && val !== undefined)
+    .map(([key, val]) => {
+      const cleanKey = key.replaceAll('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())
+      const cleanVal = typeof val === 'boolean' ? (val ? 'Yes' : 'No') : Array.isArray(val) ? val.join(', ') : String(val)
+      return `${cleanKey}: ${cleanVal}`
+    })
+    .join(' | ')
+}
+
 function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
   const tickets = Array.isArray(data.tickets) ? data.tickets : Array.isArray(data.ticket_recommendations) ? data.ticket_recommendations : null
   const invoices = Array.isArray(data.invoices) ? data.invoices : Array.isArray(data.recommendations) ? data.recommendations : null
   const cases = Array.isArray(data.cases) ? data.cases : null
+  const customers = Array.isArray(data.customers) ? data.customers : null
 
   return (
     <div className="evidence-viewer">
@@ -851,24 +877,48 @@ function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
+      {customers && customers.length > 0 && (
+        <div className="evidence-section">
+          <div className="evidence-section-title">CUSTOMER & PAYMENT HISTORY ({customers.length} CUSTOMERS)</div>
+          <div className="evidence-cards-list">
+            {customers.map((item: any, idx: number) => (
+              <div className="evidence-item-card" key={idx}>
+                <div className="evidence-card-header">
+                  <strong>Customer #{item.customer_name || item.customer_id?.slice?.(0, 8)?.toUpperCase() || idx + 1}</strong>
+                  <span className={`evidence-pill ${item.late_payment_count > 0 ? 'pill-medium' : 'pill-low'}`}>{item.late_payment_count > 0 ? `${item.late_payment_count} Late Payments` : 'Good Standing'}</span>
+                </div>
+                <div className="evidence-fields">
+                  <div><span>Total Payments:</span> <strong>{item.payment_count ?? 0} payments recorded</strong></div>
+                  <div><span>Late / Overdue:</span> <strong className={item.late_payment_count > 0 ? 'text-warning' : ''}>{item.late_payment_count ?? 0} late payments</strong></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {cases && cases.length > 0 && (
         <div className="evidence-section">
-          <div className="evidence-section-title">EVALUATED CONTRACT CASES ({cases.length})</div>
+          <div className="evidence-section-title">EVALUATED CASES & CONTRACTS ({cases.length})</div>
           <div className="evidence-cards-list">
             {cases.map((item: any, idx: number) => (
               <div className="evidence-item-card" key={idx}>
                 <div className="evidence-card-header">
-                  <strong>Contract Case #{idx + 1}</strong>
-                  {item.requires_formal_notice ? (
+                  <strong>{item.invoice_number ? `Invoice #${item.invoice_number}` : `Case Evaluation #${idx + 1}`}</strong>
+                  {item.priority ? (
+                    <span className={`evidence-pill pill-${item.priority.toLowerCase()}`}>{item.priority}</span>
+                  ) : item.requires_formal_notice ? (
                     <span className="evidence-pill pill-medium">Notice Required</span>
                   ) : (
                     <span className="evidence-pill pill-low">Standard MSA</span>
                   )}
                 </div>
                 <div className="evidence-fields">
+                  {item.days_overdue !== undefined && <div><span>Days Overdue:</span> <strong className="text-warning">{item.days_overdue} days</strong></div>}
+                  {item.late_payment_count !== undefined && <div><span>Late Payment History:</span> <strong>{item.late_payment_count} late payments</strong></div>}
                   {item.contracts && <div><span>Contracts:</span> <strong>{Array.isArray(item.contracts) ? item.contracts.join(', ') : String(item.contracts)}</strong></div>}
-                  <div><span>Notice Terms:</span> <strong>{item.requires_formal_notice ? 'Written formal notice required' : 'Standard collections terms'}</strong></div>
-                  <div><span>Prior Contact Logs:</span> <strong>{item.prior_communication_count ?? 0} messages recorded</strong></div>
+                  {item.requires_formal_notice !== undefined && <div><span>Notice Terms:</span> <strong>{item.requires_formal_notice ? 'Written formal notice required' : 'Standard collections terms'}</strong></div>}
+                  {item.prior_communication_count !== undefined && <div><span>Prior Contact Logs:</span> <strong>{item.prior_communication_count} messages recorded</strong></div>}
                 </div>
               </div>
             ))}
@@ -884,12 +934,12 @@ function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
-      {!tickets && !invoices && !cases && data.sent_count === undefined && data.escalated_ticket_count === undefined && (
+      {!tickets && !invoices && !cases && !customers && data.sent_count === undefined && data.escalated_ticket_count === undefined && (
         <div className="evidence-kv-grid">
           {Object.entries(data).map(([key, value]) => (
             <div className="evidence-kv-item" key={key}>
               <span className="kv-key">{key.replaceAll('_', ' ').toUpperCase()}</span>
-              <span className="kv-val">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+              <span className="kv-val">{formatEvidenceValue(value)}</span>
             </div>
           ))}
         </div>
