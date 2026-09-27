@@ -201,7 +201,10 @@ export function OperationsView({ page, user }: { page: OperationsPage; user: { i
             <button className="reject-button" disabled={busyId === task.id} onClick={() => void runTaskAction(task, 'reject')} type="button"><AlertTriangle size={14} />Reject & Re-plan</button>
             <button className="text-button info-button" onClick={() => setInfoRequested(task.id)} type="button">Request More Info</button>
           </div> : <small>Approver or administrator role required.</small>}
-      })}</div>}</>
+        </article>
+      })}</div>}
+        </>
+      )
     )}
     {page === 'audit' && <>
       <div className="ops-toolbar"><label className="search-field"><input aria-label="Search audit log" placeholder="Search user, action, or workflow" onChange={(event) => setFilter(event.target.value)} value={filter} /></label><span>{filteredAudit.length} events</span></div>
