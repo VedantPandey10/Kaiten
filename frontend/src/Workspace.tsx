@@ -254,13 +254,14 @@ function Workspace() {
     documents: 'Documents & Data Sources', communications: 'Communications',
     analytics: 'Analytics', audit: 'Audit & Activity',
   }
+  const isApproverOrAdmin = user.role === 'ADMIN' || user.role === 'APPROVER'
   const navigationGroups: { label: string; items: { view: WorkspaceView; label: string; icon: ReactNode; count?: number }[] }[] = [
     { label: 'OPERATIONS', items: [
       { view: 'command' as const, label: 'Command Center', icon: <Activity size={16} /> },
       { view: 'assistant' as const, label: 'AI Command', icon: <Bot size={16} /> },
       { view: 'workflows' as const, label: 'Workflows', icon: <Layers3 size={16} />, count: workflows.length },
       { view: 'tasks' as const, label: 'Tasks', icon: <ListTodo size={16} /> },
-      { view: 'approvals' as const, label: 'Approvals', icon: <ShieldCheck size={16} />, count: approvalCount },
+      ...(isApproverOrAdmin ? [{ view: 'approvals' as const, label: 'Approvals', icon: <ShieldCheck size={16} />, count: approvalCount }] : []),
     ] },
     { label: 'BUSINESS', items: [
       { view: 'finance' as const, label: 'Finance', icon: <FilePlus2 size={16} /> },
@@ -299,7 +300,7 @@ function Workspace() {
         <header className="topbar"><div className="breadcrumbs"><span>{user.name}</span><span className="crumb-divider">/</span><strong>{viewTitles[activeView]}</strong></div><div className="topbar-actions"><span className="role-chip">{roleNames[user.role]}</span><span className="user-avatar" title={user.email}>{user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase()}</span><button className="topbar-signout" onClick={signOut} type="button" aria-label="Sign out"><LogOut size={15} /></button></div></header>
         <div className="page-content">
           {error && <div className="notice notice-error" role="alert"><CircleAlert size={17} /><span>{error}</span><button className="icon-button" onClick={() => setError(null)} type="button" aria-label="Dismiss error"><X size={15} /></button></div>}
-          {adminPage ? <AdminView key={adminPage} page={adminPage} onNavigate={setActiveView} />
+          {adminPage ? (user.role === 'ADMIN' ? <AdminView key={adminPage} page={adminPage} onNavigate={setActiveView} /> : <div className="notice notice-error" role="alert"><CircleAlert size={17} /><span>Access restricted: Tenant administration is only accessible to Workspace Administrators.</span></div>)
             : recordsView ? <RecordCenter key={activeView} title={viewTitles[activeView]} user={user} initialTab={recordTab} onError={setError} />
             : operationsPage ? <OperationsView key={operationsPage} page={operationsPage} user={user} />
               : activeView === 'assistant' ? <BusinessCommand busy={busy} writable={canOperate} onCreate={handleCommandCreate} /> : <>

@@ -126,9 +126,16 @@ export function OperationsView({ page, user }: { page: OperationsPage; user: { i
       <div className="ops-toolbar"><label className="search-field"><input aria-label="Search tasks" placeholder="Search task or workflow" onChange={(event) => setFilter(event.target.value)} value={filter} /></label><span>{filteredTasks.length} task records</span></div>
       {loading ? <LoadingState /> : filteredTasks.length === 0 ? <EmptyState title="No tasks found" copy="Workflow steps appear here as objectives are planned." /> : <div className="ops-table-wrap"><table className="ops-table"><thead><tr><th>TASK</th><th>WORKFLOW</th><th>PRIORITY</th><th>ASSIGNED TO</th><th>STATUS & RETRIES</th><th>ACTION</th></tr></thead><tbody>{filteredTasks.map((task) => { const assignee = data.team.find((member) => member.id === task.assigned_to_id); const canCompleteTask = canOperate && (!task.assigned_to_id || task.assigned_to_id === user.id || user.role === 'ADMIN'); return <tr key={task.id}><td><strong>{task.title}</strong><small>{task.description}</small>{task.failure_reason && <div className="task-failure-reason"><AlertTriangle size={12} />{task.failure_reason}</div>}</td><td>{data.workflows.find((workflow) => workflow.id === task.workflow_id)?.objective ?? 'Workflow'}</td><td><span className={`ticket-priority priority-${task.priority.toLowerCase()}`}>{task.priority}</span></td><td>{assignee?.name ?? 'Unassigned'}</td><td><span className={`ops-status status-${task.status.toLowerCase()}`}>{task.status.replaceAll('_', ' ')}</span>{(task.retry_count ?? 0) > 0 && <span className="retry-badge"><RefreshCw size={10} />Attempt {task.retry_count}/{task.max_retries ?? 3}</span>}{task.fallback_channel && <span className="fallback-badge"><Zap size={10} />{task.fallback_channel}</span>}</td><td><div className="task-action-buttons">{canCompleteTask && task.kind !== 'APPROVAL' && task.status === 'TODO' && <button className="complete-button" disabled={busyId === task.id} onClick={() => void runTaskAction(task, 'complete')} type="button"><Check size={13} />Complete</button>}{canOperate && task.status === 'TODO' && <button className="icon-button danger-icon" title="Simulate failure & retry" disabled={busyId === task.id} onClick={() => void runTaskAction(task, 'fail')} type="button"><AlertTriangle size={13} /></button>}{canOperate && task.status === 'FAILED' && <button className="approve-button" disabled={busyId === task.id} onClick={() => void runTaskAction(task, 'retry')} type="button"><RefreshCw size={13} />Retry Task</button>}</div></td></tr>})}</tbody></table></div>}
     </>}
-    {page === 'approvals' && <>
-      <div className="approval-summary"><ShieldCheck size={17} /><span><strong>{pendingApprovals.length} pending approvals</strong> · Explainable AI decision support and evidence policy engine</span></div>
-      {loading ? <LoadingState /> : pendingApprovals.length === 0 ? <EmptyState title="No pending approvals" copy="Approval requests from active workflows will appear here." /> : <div className="approval-list">{pendingApprovals.map((task) => {
+    {page === 'approvals' && (
+      !canApprove ? (
+        <div className="notice notice-error" role="alert">
+          <ShieldAlert size={17} />
+          <span>Access restricted: Viewing and authorizing approval requests requires an Approver or Administrator role.</span>
+        </div>
+      ) : (
+        <>
+          <div className="approval-summary"><ShieldCheck size={17} /><span><strong>{pendingApprovals.length} pending approvals</strong> · Explainable AI decision support and evidence policy engine</span></div>
+          {loading ? <LoadingState /> : pendingApprovals.length === 0 ? <EmptyState title="No pending approvals" copy="Approval requests from active workflows will appear here." /> : <div className="approval-list">{pendingApprovals.map((task) => {
         const workflow = data.workflows.find((item) => item.id === task.workflow_id)
         const recommendations = (task.result_data?.recommendations as any[]) ?? (task.result_data?.tickets as any[]) ?? []
         const firstRec = recommendations[0] ?? {}
@@ -194,9 +201,8 @@ export function OperationsView({ page, user }: { page: OperationsPage; user: { i
             <button className="reject-button" disabled={busyId === task.id} onClick={() => void runTaskAction(task, 'reject')} type="button"><AlertTriangle size={14} />Reject & Re-plan</button>
             <button className="text-button info-button" onClick={() => setInfoRequested(task.id)} type="button">Request More Info</button>
           </div> : <small>Approver or administrator role required.</small>}
-        </article>
-      })}</div>}
-    </>}
+      })}</div>}</>
+    )}
     {page === 'audit' && <>
       <div className="ops-toolbar"><label className="search-field"><input aria-label="Search audit log" placeholder="Search user, action, or workflow" onChange={(event) => setFilter(event.target.value)} value={filter} /></label><span>{filteredAudit.length} events</span></div>
       {loading ? <LoadingState /> : filteredAudit.length === 0 ? <EmptyState title="No audit events" copy="Workflow and approval history will be recorded here." /> : <div className="audit-explorer">{filteredAudit.map(({ event, workflow }) => <article className="audit-row" key={`${workflow.id}-${event.id}`}><time>{dateTime(event.created_at)}</time><span className="activity-mark"><span /></span><div><strong>{event.event_type.replaceAll('_', ' ')}</strong><p>{workflow.objective}</p><small>{event.actor}{Object.keys(event.details).length ? ` · ${JSON.stringify(event.details)}` : ''}</small></div></article>)}</div>}
