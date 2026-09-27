@@ -118,10 +118,15 @@ export interface AuditEvent {
 }
 
 let accessToken: string | null = null
+let onUnauthorizedHandler: (() => void) | null = null
 const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://127.0.0.1:8000'
 
 export function setAccessToken(token: string | null) {
   accessToken = token
+}
+
+export function setUnauthorizedHandler(handler: (() => void) | null) {
+  onUnauthorizedHandler = handler
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -137,6 +142,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     const body = await response.json().catch(() => null) as { detail?: string } | null
     const error = new Error(body?.detail ?? `Request failed (${response.status}).`) as Error & { status?: number }
     error.status = response.status
+    if (response.status === 401 && !path.includes('/api/auth/login')) {
+      onUnauthorizedHandler?.()
+    }
     throw error
   }
   if (response.status === 204) return undefined as T

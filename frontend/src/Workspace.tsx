@@ -9,7 +9,7 @@ import {
   approveTask, bootstrapAdmin, cancelWorkflow, completeTask, createTask,
   createUser, createWorkflow, deleteTask, deleteUser, deleteWorkflow,
   getAdminRegistrationStatus, getCurrentUser, getWorkflowAudit, listTasks, listTeam, listTickets, listUsers, listWorkflows,
-  login, registerAdmin, registerUser, rejectTask, replanWorkflow, resumeWorkflow, setAccessToken, simulateWorkflow, startWorkflow, updateTask,
+  login, registerAdmin, registerUser, rejectTask, replanWorkflow, resumeWorkflow, setAccessToken, setUnauthorizedHandler, simulateWorkflow, startWorkflow, updateTask,
   updateUser, updateWorkflow,
   type AuditEvent, type AuthSession, type Role, type SimulationResponse, type TaskKind, type TaskPriority, type TaskStatus,
   type User, type Workflow, type WorkflowStatus, type WorkflowTask,
@@ -85,6 +85,17 @@ function Workspace() {
 
   const canOperate = user?.role === 'ADMIN' || user?.role === 'OPERATOR'
   const selected = workflows.find((workflow) => workflow.id === selectedId) ?? null
+
+  useEffect(() => {
+    setUnauthorizedHandler(() => {
+      sessionStorage.removeItem('kaiten.accessToken')
+      localStorage.removeItem('kaiten.accessToken')
+      setAccessToken(null)
+      setToken(null)
+      setUser(null)
+    })
+    return () => setUnauthorizedHandler(null)
+  }, [])
 
   useEffect(() => {
     if (!token) return

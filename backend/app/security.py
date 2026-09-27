@@ -63,10 +63,16 @@ def get_authenticated_user(
         ) from error
 
     user = db.get(User, user_id)
-    if user is None or not user.is_active:
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="This account is unavailable.",
+            detail="Account not found. Please sign in again.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Your account has been deactivated or is pending administrator activation.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user
