@@ -329,7 +329,7 @@ function Workspace() {
 
             <aside className="detail-column"><section className="detail-panel"><div className="detail-heading"><div><div className="section-kicker">PERSISTED WORKFLOW PLAN</div><h2>Steps & activity</h2></div>{selected && <div className="detail-actions"><button className="secondary-button export-pdf-btn" onClick={() => exportWorkflowPdf(selected, tasks, audit)} type="button"><Download size={14} />Export PDF</button>{canOperate && selected.status === draftStatus && <><button className="icon-button" title="Edit workflow objective" onClick={() => { setEditingWorkflow(selected); setModal('workflow') }} type="button" aria-label="Edit workflow objective"><Pencil size={14} /></button><button className="icon-button danger-icon" title="Delete draft workflow" onClick={() => { if (window.confirm('Delete this draft workflow?')) void runAction(() => deleteWorkflow(selected.id)).then(() => { setWorkflows((items) => items.filter((item) => item.id !== selected.id)); setSelectedId(null) }) }} type="button" aria-label="Delete draft workflow"><Trash2 size={14} /></button></>}</div>}</div>
               {selected ? <><div className="selected-summary"><div className="summary-header-row"><StatusBadge status={selected.status} /><span className="detail-created">Created {dateLabel(selected.created_at)}</span></div><p className="summary-objective">{selected.objective}</p><div className="summary-action-bar">{canOperate && selected.status === 'CREATED' && <button className="text-button start-plan-button" onClick={() => void runAction(() => startWorkflow(selected.id))} type="button">Generate step plan <ArrowRight size={14} /></button>}{canOperate && selected.status === 'WAITING_FOR_INPUT' && <button className="text-button start-plan-button" onClick={() => void runAction(() => resumeWorkflow(selected.id))} type="button">Recheck business records <RefreshCw size={13} /></button>}{canOperate && !['RESOLVED', 'CANCELLED', 'CREATED'].includes(selected.status) && <button className="text-button start-plan-button replan-trigger-btn" disabled={busy} onClick={() => void runAction(() => replanWorkflow(selected.id))} type="button"><Zap size={13} />Re-evaluate State (Dynamic Replanner)</button>}<button className="text-button export-pdf-text-btn" onClick={() => exportWorkflowPdf(selected, tasks, audit)} type="button"><Download size={13} />Export PDF Report (Values only)</button></div></div>
-                <div className="detail-body-grid"><div className="detail-plan-section">{tasks.length > 0 && <div className="plan-list"><div className="plan-list-heading"><span>EXECUTION PLAN</span><span>{tasks.filter((task) => task.status === 'COMPLETED').length}/{tasks.length} DONE</span></div>{tasks.map((task) => <TaskRow key={task.id} task={task} user={user} team={team} busy={busy} canEdit={selected.status === 'CREATED'} canComplete={!['CREATED', 'WAITING_FOR_INPUT', 'RESOLVED', 'CANCELLED'].includes(selected.status) && (!task.assigned_to_id || task.assigned_to_id === user.id || user.role === 'ADMIN')} onComplete={() => void runAction(() => completeTask(task.id))} onApprove={() => void runAction(() => approveTask(task.id))} onReject={() => void runAction(() => rejectTask(task.id))} onEdit={() => { setEditingTask(task); setModal('task') }} onDelete={() => { if (window.confirm('Delete this task?')) void runAction(() => deleteTask(task.id)) }} />)}</div>}{canOperate && selected.status === 'CREATED' && <button className="add-step-button" onClick={() => { setEditingTask(null); setModal('task') }} type="button"><Plus size={14} />Add workflow step</button>}</div><div className="detail-audit-section"><div className="activity-list audit-list"><div className="plan-list-heading"><span>AUDIT TRAIL</span><span>{audit.length} EVENTS</span></div>{audit.length ? audit.map((event) => <AuditItem event={event} key={event.id} />) : <div className="activity-empty"><Clock3 size={16} /><span>No events recorded.</span></div>}</div><section className="guardrail-note"><span className="guardrail-icon"><ShieldCheck size={16} /></span><div><strong>Approval is enforced by the API</strong><p>Only approver and admin roles can authorize external actions.</p></div></section></div></div></> : <div className="activity-empty no-selection"><Layers3 size={18} /><span>Select a workflow to inspect its plan and audit history.</span></div>}
+                <div className="detail-body-grid"><div className="detail-plan-section">{tasks.length > 0 && <div className="plan-list"><div className="plan-list-heading"><span>EXECUTION PLAN</span><span>{tasks.filter((task) => task.status === 'COMPLETED').length}/{tasks.length} DONE</span></div>{tasks.map((task) => <TaskRow key={task.id} task={task} user={user} team={team} busy={busy} canEdit={selected.status === 'CREATED'} canComplete={!['CREATED', 'WAITING_FOR_INPUT', 'RESOLVED', 'CANCELLED'].includes(selected.status) && (!task.assigned_to_id || task.assigned_to_id === user.id || user.role === 'ADMIN')} onComplete={() => void runAction(() => completeTask(task.id))} onApprove={() => void runAction(() => approveTask(task.id))} onReject={() => void runAction(() => rejectTask(task.id))} onEdit={() => { setEditingTask(task); setModal('task') }} onDelete={() => { if (window.confirm('Delete this task?')) void runAction(() => deleteTask(task.id)) }} onNavigate={setActiveView} />)}</div>}{canOperate && selected.status === 'CREATED' && <button className="add-step-button" onClick={() => { setEditingTask(null); setModal('task') }} type="button"><Plus size={14} />Add workflow step</button>}</div><div className="detail-audit-section"><div className="activity-list audit-list"><div className="plan-list-heading"><span>AUDIT TRAIL</span><span>{audit.length} EVENTS</span></div>{audit.length ? audit.map((event) => <AuditItem event={event} key={event.id} />) : <div className="activity-empty"><Clock3 size={16} /><span>No events recorded.</span></div>}</div><section className="guardrail-note"><span className="guardrail-icon"><ShieldCheck size={16} /></span><div><strong>Approval is enforced by the API</strong><p>Only approver and admin roles can authorize external actions.</p></div></section></div></div></> : <div className="activity-empty no-selection"><Layers3 size={18} /><span>Select a workflow to inspect its plan and audit history.</span></div>}
             </section></aside>
           </section>
           <footer className="page-footer"><span>KAITEN WORKFLOW CONSOLE</span><span>ACCOUNT: {user.email.toUpperCase()} <span className="footer-dot">·</span> {roleNames[user.role].toUpperCase()}</span></footer>
@@ -822,7 +822,7 @@ function formatEvidenceObject(obj: Record<string, any>): string {
     .join(' | ')
 }
 
-function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
+function TaskEvidenceViewer({ data, onNavigate }: { data: Record<string, any>; onNavigate?: (view: WorkspaceView) => void }) {
   const tickets = Array.isArray(data.tickets) ? data.tickets : Array.isArray(data.ticket_recommendations) ? data.ticket_recommendations : null
   const invoices = Array.isArray(data.invoices) ? data.invoices : Array.isArray(data.recommendations) ? data.recommendations : null
   const cases = Array.isArray(data.cases) ? data.cases : null
@@ -848,6 +848,11 @@ function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
                   {item.recommended_action && <div><span>Action:</span> <strong className="text-accent">{item.recommended_action}</strong></div>}
                 </div>
                 {item.reason && <div className="evidence-reason"><strong>Rationale:</strong> {item.reason}</div>}
+                {onNavigate && (
+                  <button type="button" className="text-button" onClick={() => onNavigate('support')} style={{ marginTop: '4px', fontSize: '9px', fontWeight: 600 }}>
+                    View in Support <ArrowRight size={11} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -871,6 +876,11 @@ function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
                   {item.risk_score !== undefined && <div><span>Risk Score:</span> <strong>{item.risk_score}/100</strong></div>}
                 </div>
                 {item.reason && <div className="evidence-reason"><strong>Rationale:</strong> {item.reason}</div>}
+                {onNavigate && (
+                  <button type="button" className="text-button" onClick={() => onNavigate('finance')} style={{ marginTop: '4px', fontSize: '9px', fontWeight: 600 }}>
+                    View in Finance <ArrowRight size={11} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -891,6 +901,11 @@ function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
                   <div><span>Total Payments:</span> <strong>{item.payment_count ?? 0} payments recorded</strong></div>
                   <div><span>Late / Overdue:</span> <strong className={item.late_payment_count > 0 ? 'text-warning' : ''}>{item.late_payment_count ?? 0} late payments</strong></div>
                 </div>
+                {onNavigate && (
+                  <button type="button" className="text-button" onClick={() => onNavigate('documents')} style={{ marginTop: '4px', fontSize: '9px', fontWeight: 600 }}>
+                    View Customers in Documents <ArrowRight size={11} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -920,6 +935,11 @@ function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
                   {item.requires_formal_notice !== undefined && <div><span>Notice Terms:</span> <strong>{item.requires_formal_notice ? 'Written formal notice required' : 'Standard collections terms'}</strong></div>}
                   {item.prior_communication_count !== undefined && <div><span>Prior Contact Logs:</span> <strong>{item.prior_communication_count} messages recorded</strong></div>}
                 </div>
+                {onNavigate && (
+                  <button type="button" className="text-button" onClick={() => onNavigate('finance')} style={{ marginTop: '4px', fontSize: '9px', fontWeight: 600 }}>
+                    View in Finance <ArrowRight size={11} />
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -948,11 +968,11 @@ function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
   )
 }
 
-function TaskRow({ task, user, team, busy, canEdit, canComplete, onComplete, onApprove, onReject, onEdit, onDelete }: { task: WorkflowTask; user: User; team: User[]; busy: boolean; canEdit: boolean; canComplete: boolean; onComplete: () => void; onApprove: () => void; onReject: () => void; onEdit: () => void; onDelete: () => void }) {
+function TaskRow({ task, user, team, busy, canEdit, canComplete, onComplete, onApprove, onReject, onEdit, onDelete, onNavigate }: { task: WorkflowTask; user: User; team: User[]; busy: boolean; canEdit: boolean; canComplete: boolean; onComplete: () => void; onApprove: () => void; onReject: () => void; onEdit: () => void; onDelete: () => void; onNavigate?: (view: WorkspaceView) => void }) {
   const operator = user.role === 'ADMIN' || user.role === 'OPERATOR'
   const approver = user.role === 'ADMIN' || user.role === 'APPROVER'
   const assignee = team.find((member) => member.id === task.assigned_to_id)
-  return <article className={`task-row task-${task.status.toLowerCase()}`}><span className="task-order">{String(task.order_index).padStart(2, '0')}</span><div className="task-content"><div className="task-title-line"><strong>{task.title}</strong><span className={`task-status task-status-${task.status.toLowerCase()}`}>{taskStatus[task.status]}</span></div><p>{task.description}</p><div className="task-meta"><span>{task.kind}</span><i /><span>{task.priority}</span>{assignee && <><i /> <span>{assignee.name}</span></>}{task.due_at && <><i /> <span>Due {dateLabel(task.due_at)}</span></>}{task.source && <><i /> <span>{task.source}</span></>}</div>{task.result_data && <details className="task-evidence"><summary>Inspect gathered evidence</summary><TaskEvidenceViewer data={task.result_data} /></details>}{task.status === 'WAITING_APPROVAL' && approver && <div className="task-actions approval-actions"><button className="approve-button" disabled={busy} onClick={onApprove} type="button"><Check size={13} />Approve</button><button className="reject-button" disabled={busy} onClick={onReject} type="button"><X size={13} />Reject & replan</button></div>}{canComplete && task.status === 'TODO' && operator && task.kind !== 'APPROVAL' && <div className="task-actions"><button className="complete-button" disabled={busy} onClick={onComplete} type="button"><Check size={13} />Complete step</button></div>}</div>{task.status === 'BLOCKED' && <span className="blocked-label">Waiting</span>}{operator && canEdit && <div className="task-edit-actions"><button className="icon-button" onClick={onEdit} type="button" aria-label={`Edit ${task.title}`}><Pencil size={13} /></button><button className="icon-button danger-icon" onClick={onDelete} type="button" aria-label={`Delete ${task.title}`}><Trash2 size={13} /></button></div>}</article>
+  return <article className={`task-row task-${task.status.toLowerCase()}`}><span className="task-order">{String(task.order_index).padStart(2, '0')}</span><div className="task-content"><div className="task-title-line"><strong>{task.title}</strong><span className={`task-status task-status-${task.status.toLowerCase()}`}>{taskStatus[task.status]}</span></div><p>{task.description}</p><div className="task-meta"><span>{task.kind}</span><i /><span>{task.priority}</span>{assignee && <><i /> <span>{assignee.name}</span></>}{task.due_at && <><i /> <span>Due {dateLabel(task.due_at)}</span></>}{task.source && <><i /> <span>{task.source}</span></>}</div>{task.result_data && <details className="task-evidence"><summary>Inspect gathered evidence</summary><TaskEvidenceViewer data={task.result_data} onNavigate={onNavigate} /></details>}{task.status === 'WAITING_APPROVAL' && approver && <div className="task-actions approval-actions"><button className="approve-button" disabled={busy} onClick={onApprove} type="button"><Check size={13} />Approve</button><button className="reject-button" disabled={busy} onClick={onReject} type="button"><X size={13} />Reject & replan</button></div>}{canComplete && task.status === 'TODO' && operator && task.kind !== 'APPROVAL' && <div className="task-actions"><button className="complete-button" disabled={busy} onClick={onComplete} type="button"><Check size={13} />Complete step</button></div>}</div>{task.status === 'BLOCKED' && <span className="blocked-label">Waiting</span>}{operator && canEdit && <div className="task-edit-actions"><button className="icon-button" onClick={onEdit} type="button" aria-label={`Edit ${task.title}`}><Pencil size={13} /></button><button className="icon-button danger-icon" onClick={onDelete} type="button" aria-label={`Delete ${task.title}`}><Trash2 size={13} /></button></div>}</article>
 }
 
 function AuditItem({ event }: { event: AuditEvent }) {
