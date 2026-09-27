@@ -92,11 +92,16 @@ function Workspace() {
     getCurrentUser().then((currentUser) => {
       setUser(currentUser)
       if (currentUser.role === 'ADMIN') setActiveView('admin-dashboard')
-    }).catch(() => {
-      sessionStorage.removeItem('kaiten.accessToken')
-      localStorage.removeItem('kaiten.accessToken')
-      setAccessToken(null)
-      setToken(null)
+    }).catch((err: any) => {
+      const isUnauthorized = err?.status === 401 || String(err?.message || '').includes('401') || String(err?.message || '').includes('expired') || String(err?.message || '').includes('Invalid')
+      if (isUnauthorized) {
+        sessionStorage.removeItem('kaiten.accessToken')
+        localStorage.removeItem('kaiten.accessToken')
+        setAccessToken(null)
+        setToken(null)
+      } else {
+        console.warn('Session verification encountered temporary server error:', err)
+      }
     }).finally(() => setAuthLoading(false))
   }, [token])
 
@@ -645,7 +650,7 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession,
       }
       const session = mode === 'bootstrap'
         ? await bootstrapAdmin({ name, company, email, password })
-        : await login(email, password)
+        : await login(email, password, rememberMe)
       if (mode === 'admin-login' && session.user.role !== 'ADMIN') {
         throw new Error('This sign-in is for workspace administrators.')
       }

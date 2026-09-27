@@ -213,7 +213,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
                 status_code=401,
                 detail="Your account is pending administrator activation. Please contact your workspace administrator.",
             )
-        return TokenRead(access_token=create_access_token(user), user=user)
+        expires_delta = timedelta(days=30) if payload.remember_me else timedelta(hours=24)
+        return TokenRead(access_token=create_access_token(user, expires_delta=expires_delta), user=user)
 
     @app.get("/api/auth/me", response_model=UserRead)
     def get_me(user: User = Depends(get_current_user)) -> User:

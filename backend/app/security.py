@@ -33,10 +33,11 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return password_hash.verify(password, hashed_password)
 
 
-def create_access_token(user: User) -> str:
+def create_access_token(user: User, expires_delta: timedelta | None = None) -> str:
     now = datetime.now(UTC)
+    delta = expires_delta if expires_delta is not None else timedelta(days=30)
     return jwt.encode(
-        {"sub": str(user.id), "iat": now, "exp": now + timedelta(hours=8)},
+        {"sub": str(user.id), "iat": now, "exp": now + delta},
         _jwt_secret(),
         algorithm="HS256",
     )

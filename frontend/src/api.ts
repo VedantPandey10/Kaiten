@@ -135,7 +135,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   })
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { detail?: string } | null
-    throw new Error(body?.detail ?? `Request failed (${response.status}).`)
+    const error = new Error(body?.detail ?? `Request failed (${response.status}).`) as Error & { status?: number }
+    error.status = response.status
+    throw error
   }
   if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
@@ -145,7 +147,7 @@ export const bootstrapAdmin = (payload: { name: string; company: string; email: 
 export const getAdminRegistrationStatus = () => request<{ available: boolean }>('/api/auth/admin-registration-status')
 export const registerAdmin = (payload: { name: string; company: string; email: string; password: string }) => request<AuthSession>('/api/auth/register-admin', { method: 'POST', body: JSON.stringify(payload) })
 export const registerUser = (payload: { name: string; company: string; email: string; password: string }) => request<{ detail: string }>('/api/auth/register', { method: 'POST', body: JSON.stringify(payload) })
-export const login = (email: string, password: string) => request<AuthSession>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) })
+export const login = (email: string, password: string, rememberMe: boolean = false) => request<AuthSession>('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password, remember_me: rememberMe }) })
 export const getCurrentUser = () => request<User>('/api/auth/me')
 export const listTeam = () => request<User[]>('/api/team')
 
