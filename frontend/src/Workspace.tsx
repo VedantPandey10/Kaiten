@@ -648,11 +648,86 @@ function StatusBadge({ status }: { status: WorkflowStatus }) {
   return <span className={`status-badge tone-${tone}`}><span className="badge-dot" />{workflowStatus[status]}</span>
 }
 
+function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
+  const tickets = Array.isArray(data.tickets) ? data.tickets : Array.isArray(data.ticket_recommendations) ? data.ticket_recommendations : null
+  const invoices = Array.isArray(data.invoices) ? data.invoices : Array.isArray(data.recommendations) ? data.recommendations : null
+
+  return (
+    <div className="evidence-viewer">
+      {tickets && tickets.length > 0 && (
+        <div className="evidence-section">
+          <div className="evidence-section-title">EVALUATED SUPPORT TICKETS ({tickets.length})</div>
+          <div className="evidence-cards-list">
+            {tickets.map((item: any, idx: number) => (
+              <div className="evidence-item-card" key={idx}>
+                <div className="evidence-card-header">
+                  <strong>Ticket #{item.ticket_number || item.ticket_id?.slice?.(0, 8) || idx + 1}</strong>
+                  {item.priority && <span className={`evidence-pill pill-${item.priority.toLowerCase()}`}>{item.priority}</span>}
+                </div>
+                {item.subject && <div className="evidence-subject">{item.subject}</div>}
+                <div className="evidence-fields">
+                  {item.requester_email && <div><span>Requester:</span> <strong>{item.requester_email}</strong></div>}
+                  {item.customer_name && <div><span>Customer:</span> <strong>{item.customer_name}</strong></div>}
+                  {item.hours_overdue !== undefined && <div><span>Overdue:</span> <strong className="text-warning">{item.hours_overdue} hrs past SLA</strong></div>}
+                  {item.recommended_action && <div><span>Action:</span> <strong className="text-accent">{item.recommended_action}</strong></div>}
+                </div>
+                {item.reason && <div className="evidence-reason"><strong>Rationale:</strong> {item.reason}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {invoices && invoices.length > 0 && (
+        <div className="evidence-section">
+          <div className="evidence-section-title">EVALUATED INVOICES & OUTREACH ({invoices.length})</div>
+          <div className="evidence-cards-list">
+            {invoices.map((item: any, idx: number) => (
+              <div className="evidence-item-card" key={idx}>
+                <div className="evidence-card-header">
+                  <strong>Invoice #{item.invoice_number || idx + 1}</strong>
+                  {item.amount && <span className="evidence-amount">{item.currency || 'INR'} {Number(item.amount).toLocaleString()}</span>}
+                </div>
+                <div className="evidence-fields">
+                  {item.customer_name && <div><span>Customer:</span> <strong>{item.customer_name}</strong></div>}
+                  {item.due_date && <div><span>Due Date:</span> <strong>{item.due_date}</strong></div>}
+                  {item.recommended_action && <div><span>Proposed Action:</span> <strong className="text-accent">{item.recommended_action}</strong></div>}
+                  {item.risk_score !== undefined && <div><span>Risk Score:</span> <strong>{item.risk_score}/100</strong></div>}
+                </div>
+                {item.reason && <div className="evidence-reason"><strong>Rationale:</strong> {item.reason}</div>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {(data.sent_count !== undefined || data.escalated_ticket_count !== undefined || data.simulated) && (
+        <div className="evidence-summary-pills">
+          {data.sent_count !== undefined && <span className="evidence-badge">Outreach Sent: {data.sent_count} messages</span>}
+          {data.escalated_ticket_count !== undefined && <span className="evidence-badge">Tickets Escalated: {data.escalated_ticket_count}</span>}
+          {data.simulated && <span className="evidence-badge simulated">Simulated Execution</span>}
+        </div>
+      )}
+
+      {!tickets && !invoices && data.sent_count === undefined && data.escalated_ticket_count === undefined && (
+        <div className="evidence-kv-grid">
+          {Object.entries(data).map(([key, value]) => (
+            <div className="evidence-kv-item" key={key}>
+              <span className="kv-key">{key.replaceAll('_', ' ').toUpperCase()}</span>
+              <span className="kv-val">{typeof value === 'object' ? JSON.stringify(value) : String(value)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TaskRow({ task, user, team, busy, canEdit, canComplete, onComplete, onApprove, onReject, onEdit, onDelete }: { task: WorkflowTask; user: User; team: User[]; busy: boolean; canEdit: boolean; canComplete: boolean; onComplete: () => void; onApprove: () => void; onReject: () => void; onEdit: () => void; onDelete: () => void }) {
   const operator = user.role === 'ADMIN' || user.role === 'OPERATOR'
   const approver = user.role === 'ADMIN' || user.role === 'APPROVER'
   const assignee = team.find((member) => member.id === task.assigned_to_id)
-  return <article className={`task-row task-${task.status.toLowerCase()}`}><span className="task-order">{String(task.order_index).padStart(2, '0')}</span><div className="task-content"><div className="task-title-line"><strong>{task.title}</strong><span className={`task-status task-status-${task.status.toLowerCase()}`}>{taskStatus[task.status]}</span></div><p>{task.description}</p><div className="task-meta"><span>{task.kind}</span><i /><span>{task.priority}</span>{assignee && <><i /> <span>{assignee.name}</span></>}{task.due_at && <><i /> <span>Due {dateLabel(task.due_at)}</span></>}{task.source && <><i /> <span>{task.source}</span></>}</div>{task.result_data && <details className="task-evidence"><summary>Inspect gathered evidence</summary><pre>{JSON.stringify(task.result_data, null, 2)}</pre></details>}{task.status === 'WAITING_APPROVAL' && approver && <div className="task-actions approval-actions"><button className="approve-button" disabled={busy} onClick={onApprove} type="button"><Check size={13} />Approve</button><button className="reject-button" disabled={busy} onClick={onReject} type="button"><X size={13} />Reject & replan</button></div>}{canComplete && task.status === 'TODO' && operator && task.kind !== 'APPROVAL' && <div className="task-actions"><button className="complete-button" disabled={busy} onClick={onComplete} type="button"><Check size={13} />Complete step</button></div>}</div>{task.status === 'BLOCKED' && <span className="blocked-label">Waiting</span>}{operator && canEdit && <div className="task-edit-actions"><button className="icon-button" onClick={onEdit} type="button" aria-label={`Edit ${task.title}`}><Pencil size={13} /></button><button className="icon-button danger-icon" onClick={onDelete} type="button" aria-label={`Delete ${task.title}`}><Trash2 size={13} /></button></div>}</article>
+  return <article className={`task-row task-${task.status.toLowerCase()}`}><span className="task-order">{String(task.order_index).padStart(2, '0')}</span><div className="task-content"><div className="task-title-line"><strong>{task.title}</strong><span className={`task-status task-status-${task.status.toLowerCase()}`}>{taskStatus[task.status]}</span></div><p>{task.description}</p><div className="task-meta"><span>{task.kind}</span><i /><span>{task.priority}</span>{assignee && <><i /> <span>{assignee.name}</span></>}{task.due_at && <><i /> <span>Due {dateLabel(task.due_at)}</span></>}{task.source && <><i /> <span>{task.source}</span></>}</div>{task.result_data && <details className="task-evidence"><summary>Inspect gathered evidence</summary><TaskEvidenceViewer data={task.result_data} /></details>}{task.status === 'WAITING_APPROVAL' && approver && <div className="task-actions approval-actions"><button className="approve-button" disabled={busy} onClick={onApprove} type="button"><Check size={13} />Approve</button><button className="reject-button" disabled={busy} onClick={onReject} type="button"><X size={13} />Reject & replan</button></div>}{canComplete && task.status === 'TODO' && operator && task.kind !== 'APPROVAL' && <div className="task-actions"><button className="complete-button" disabled={busy} onClick={onComplete} type="button"><Check size={13} />Complete step</button></div>}</div>{task.status === 'BLOCKED' && <span className="blocked-label">Waiting</span>}{operator && canEdit && <div className="task-edit-actions"><button className="icon-button" onClick={onEdit} type="button" aria-label={`Edit ${task.title}`}><Pencil size={13} /></button><button className="icon-button danger-icon" onClick={onDelete} type="button" aria-label={`Delete ${task.title}`}><Trash2 size={13} /></button></div>}</article>
 }
 
 function AuditItem({ event }: { event: AuditEvent }) {
