@@ -800,6 +800,7 @@ function StatusBadge({ status }: { status: WorkflowStatus }) {
 function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
   const tickets = Array.isArray(data.tickets) ? data.tickets : Array.isArray(data.ticket_recommendations) ? data.ticket_recommendations : null
   const invoices = Array.isArray(data.invoices) ? data.invoices : Array.isArray(data.recommendations) ? data.recommendations : null
+  const cases = Array.isArray(data.cases) ? data.cases : null
 
   return (
     <div className="evidence-viewer">
@@ -850,6 +851,31 @@ function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
+      {cases && cases.length > 0 && (
+        <div className="evidence-section">
+          <div className="evidence-section-title">EVALUATED CONTRACT CASES ({cases.length})</div>
+          <div className="evidence-cards-list">
+            {cases.map((item: any, idx: number) => (
+              <div className="evidence-item-card" key={idx}>
+                <div className="evidence-card-header">
+                  <strong>Contract Case #{idx + 1}</strong>
+                  {item.requires_formal_notice ? (
+                    <span className="evidence-pill pill-medium">Notice Required</span>
+                  ) : (
+                    <span className="evidence-pill pill-low">Standard MSA</span>
+                  )}
+                </div>
+                <div className="evidence-fields">
+                  {item.contracts && <div><span>Contracts:</span> <strong>{Array.isArray(item.contracts) ? item.contracts.join(', ') : String(item.contracts)}</strong></div>}
+                  <div><span>Notice Terms:</span> <strong>{item.requires_formal_notice ? 'Written formal notice required' : 'Standard collections terms'}</strong></div>
+                  <div><span>Prior Contact Logs:</span> <strong>{item.prior_communication_count ?? 0} messages recorded</strong></div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {(data.sent_count !== undefined || data.escalated_ticket_count !== undefined || data.simulated) && (
         <div className="evidence-summary-pills">
           {data.sent_count !== undefined && <span className="evidence-badge">Outreach Sent: {data.sent_count} messages</span>}
@@ -858,7 +884,7 @@ function TaskEvidenceViewer({ data }: { data: Record<string, any> }) {
         </div>
       )}
 
-      {!tickets && !invoices && data.sent_count === undefined && data.escalated_ticket_count === undefined && (
+      {!tickets && !invoices && !cases && data.sent_count === undefined && data.escalated_ticket_count === undefined && (
         <div className="evidence-kv-grid">
           {Object.entries(data).map(([key, value]) => (
             <div className="evidence-kv-item" key={key}>
