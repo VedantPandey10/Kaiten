@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Activity, ArrowRight, BarChart3, Bot, Check, CircleAlert, Clock3,
   FilePlus2, FileText, Headphones, Layers3, ListTodo, LoaderCircle, LogOut,
-  KeyRound, Eye, EyeOff, Pencil, Play, Plus, RefreshCw, Search, ShieldCheck, ScrollText, Sparkles, Trash2,
+  KeyRound, Download, Eye, EyeOff, Pencil, Play, Plus, RefreshCw, Search, ShieldCheck, ScrollText, Sparkles, Trash2,
   UserRoundCog, Users, X, Zap,
 } from 'lucide-react'
 import {
@@ -310,8 +310,8 @@ function Workspace() {
               <div className="panel-footer"><span>{visibleWorkflows.length} of {workflows.length} workflows</span><span className="footer-live"><span className="status-pip" />DATABASE CONNECTED</span></div>
             </div>
 
-            <aside className="detail-column"><section className="detail-panel"><div className="detail-heading"><div><div className="section-kicker">PERSISTED WORKFLOW PLAN</div><h2>Steps & activity</h2></div>{selected && canOperate && selected.status === draftStatus && <div className="detail-actions"><button className="icon-button" title="Edit workflow objective" onClick={() => { setEditingWorkflow(selected); setModal('workflow') }} type="button" aria-label="Edit workflow objective"><Pencil size={14} /></button><button className="icon-button danger-icon" title="Delete draft workflow" onClick={() => { if (window.confirm('Delete this draft workflow?')) void runAction(() => deleteWorkflow(selected.id)).then(() => { setWorkflows((items) => items.filter((item) => item.id !== selected.id)); setSelectedId(null) }) }} type="button" aria-label="Delete draft workflow"><Trash2 size={14} /></button></div>}</div>
-              {selected ? <><div className="selected-summary"><div className="summary-header-row"><StatusBadge status={selected.status} /><span className="detail-created">Created {dateLabel(selected.created_at)}</span></div><p className="summary-objective">{selected.objective}</p><div className="summary-action-bar">{canOperate && selected.status === 'CREATED' && <button className="text-button start-plan-button" onClick={() => void runAction(() => startWorkflow(selected.id))} type="button">Generate step plan <ArrowRight size={14} /></button>}{canOperate && selected.status === 'WAITING_FOR_INPUT' && <button className="text-button start-plan-button" onClick={() => void runAction(() => resumeWorkflow(selected.id))} type="button">Recheck business records <RefreshCw size={13} /></button>}{canOperate && !['RESOLVED', 'CANCELLED', 'CREATED'].includes(selected.status) && <button className="text-button start-plan-button replan-trigger-btn" disabled={busy} onClick={() => void runAction(() => replanWorkflow(selected.id))} type="button"><Zap size={13} />Re-evaluate State (Dynamic Replanner)</button>}</div></div>
+            <aside className="detail-column"><section className="detail-panel"><div className="detail-heading"><div><div className="section-kicker">PERSISTED WORKFLOW PLAN</div><h2>Steps & activity</h2></div>{selected && <div className="detail-actions"><button className="secondary-button export-pdf-btn" onClick={() => exportWorkflowPdf(selected, tasks, audit)} type="button"><Download size={14} />Export PDF</button>{canOperate && selected.status === draftStatus && <><button className="icon-button" title="Edit workflow objective" onClick={() => { setEditingWorkflow(selected); setModal('workflow') }} type="button" aria-label="Edit workflow objective"><Pencil size={14} /></button><button className="icon-button danger-icon" title="Delete draft workflow" onClick={() => { if (window.confirm('Delete this draft workflow?')) void runAction(() => deleteWorkflow(selected.id)).then(() => { setWorkflows((items) => items.filter((item) => item.id !== selected.id)); setSelectedId(null) }) }} type="button" aria-label="Delete draft workflow"><Trash2 size={14} /></button></>}</div>}</div>
+              {selected ? <><div className="selected-summary"><div className="summary-header-row"><StatusBadge status={selected.status} /><span className="detail-created">Created {dateLabel(selected.created_at)}</span></div><p className="summary-objective">{selected.objective}</p><div className="summary-action-bar">{canOperate && selected.status === 'CREATED' && <button className="text-button start-plan-button" onClick={() => void runAction(() => startWorkflow(selected.id))} type="button">Generate step plan <ArrowRight size={14} /></button>}{canOperate && selected.status === 'WAITING_FOR_INPUT' && <button className="text-button start-plan-button" onClick={() => void runAction(() => resumeWorkflow(selected.id))} type="button">Recheck business records <RefreshCw size={13} /></button>}{canOperate && !['RESOLVED', 'CANCELLED', 'CREATED'].includes(selected.status) && <button className="text-button start-plan-button replan-trigger-btn" disabled={busy} onClick={() => void runAction(() => replanWorkflow(selected.id))} type="button"><Zap size={13} />Re-evaluate State (Dynamic Replanner)</button>}<button className="text-button export-pdf-text-btn" onClick={() => exportWorkflowPdf(selected, tasks, audit)} type="button"><Download size={13} />Export PDF Report (Values only)</button></div></div>
                 <div className="detail-body-grid"><div className="detail-plan-section">{tasks.length > 0 && <div className="plan-list"><div className="plan-list-heading"><span>EXECUTION PLAN</span><span>{tasks.filter((task) => task.status === 'COMPLETED').length}/{tasks.length} DONE</span></div>{tasks.map((task) => <TaskRow key={task.id} task={task} user={user} team={team} busy={busy} canEdit={selected.status === 'CREATED'} canComplete={!['CREATED', 'WAITING_FOR_INPUT', 'RESOLVED', 'CANCELLED'].includes(selected.status) && (!task.assigned_to_id || task.assigned_to_id === user.id || user.role === 'ADMIN')} onComplete={() => void runAction(() => completeTask(task.id))} onApprove={() => void runAction(() => approveTask(task.id))} onReject={() => void runAction(() => rejectTask(task.id))} onEdit={() => { setEditingTask(task); setModal('task') }} onDelete={() => { if (window.confirm('Delete this task?')) void runAction(() => deleteTask(task.id)) }} />)}</div>}{canOperate && selected.status === 'CREATED' && <button className="add-step-button" onClick={() => { setEditingTask(null); setModal('task') }} type="button"><Plus size={14} />Add workflow step</button>}</div><div className="detail-audit-section"><div className="activity-list audit-list"><div className="plan-list-heading"><span>AUDIT TRAIL</span><span>{audit.length} EVENTS</span></div>{audit.length ? audit.map((event) => <AuditItem event={event} key={event.id} />) : <div className="activity-empty"><Clock3 size={16} /><span>No events recorded.</span></div>}</div><section className="guardrail-note"><span className="guardrail-icon"><ShieldCheck size={16} /></span><div><strong>Approval is enforced by the API</strong><p>Only approver and admin roles can authorize external actions.</p></div></section></div></div></> : <div className="activity-empty no-selection"><Layers3 size={18} /><span>Select a workflow to inspect its plan and audit history.</span></div>}
             </section></aside>
           </section>
@@ -416,6 +416,138 @@ function BusinessCommand({ busy, writable, onCreate }: { busy: boolean; writable
     <section className="command-templates"><div className="section-kicker">START WITH A WORKFLOW</div><div className="command-template-list">{templates.map((template) => <button className="command-template" key={template} onClick={() => setObjective(template)} type="button"><span>{template.includes('invoice') ? 'FINANCE' : 'SUPPORT'}</span><strong>{template.includes('invoice') ? 'Invoice recovery' : 'Support SLA escalation'}</strong><ArrowRight size={14} /></button>)}</div></section>
     <div className="command-capability-note"><ShieldCheck size={16} /><span>Current planners support invoice recovery and Support SLA escalation. Other objectives are saved as workflows but remain paused until a matching planner is available.</span></div>
   </main>
+}
+
+function exportWorkflowPdf(workflow: Workflow, tasks: WorkflowTask[], audit: AuditEvent[]) {
+  const printWindow = window.open('', '_blank', 'width=900,height=800')
+  if (!printWindow) return
+
+  const formattedDate = dateLabel(workflow.created_at)
+  const exportDate = new Date().toLocaleString()
+
+  const taskHtml = tasks.map((t, idx) => {
+    let evidenceHtml = ''
+    if (t.result_data) {
+      const tickets = Array.isArray(t.result_data.tickets)
+        ? t.result_data.tickets
+        : Array.isArray(t.result_data.ticket_recommendations)
+        ? t.result_data.ticket_recommendations
+        : null
+      const invoices = Array.isArray(t.result_data.invoices)
+        ? t.result_data.invoices
+        : Array.isArray(t.result_data.recommendations)
+        ? t.result_data.recommendations
+        : null
+
+      if (tickets && tickets.length > 0) {
+        evidenceHtml = tickets.map((rec: any) => `
+          <div class="val-card">
+            <div class="val-title">Ticket #${rec.ticket_number || rec.ticket_id?.slice?.(0, 8) || 'N/A'} ${rec.priority ? `(${rec.priority})` : ''}</div>
+            ${rec.subject ? `<div class="val-row">Subject: ${rec.subject}</div>` : ''}
+            ${rec.requester_email ? `<div class="val-row">Requester: ${rec.requester_email}</div>` : ''}
+            ${rec.customer_name ? `<div class="val-row">Customer: ${rec.customer_name}</div>` : ''}
+            ${rec.hours_overdue !== undefined ? `<div class="val-row">Overdue: ${rec.hours_overdue} hrs past SLA</div>` : ''}
+            ${rec.recommended_action ? `<div class="val-row">Action: ${rec.recommended_action}</div>` : ''}
+            ${rec.reason ? `<div class="val-row">Rationale: ${rec.reason}</div>` : ''}
+          </div>
+        `).join('')
+      } else if (invoices && invoices.length > 0) {
+        evidenceHtml = invoices.map((rec: any) => `
+          <div class="val-card">
+            <div class="val-title">Invoice #${rec.invoice_number || 'N/A'} - ${rec.currency || 'INR'} ${Number(rec.amount || 0).toLocaleString()}</div>
+            ${rec.customer_name ? `<div class="val-row">Customer: ${rec.customer_name}</div>` : ''}
+            ${rec.due_date ? `<div class="val-row">Due Date: ${rec.due_date}</div>` : ''}
+            ${rec.recommended_action ? `<div class="val-row">Action: ${rec.recommended_action}</div>` : ''}
+            ${rec.reason ? `<div class="val-row">Rationale: ${rec.reason}</div>` : ''}
+          </div>
+        `).join('')
+      } else {
+        evidenceHtml = `<div class="val-card"><div class="val-row">${Object.entries(t.result_data).map(([k, v]) => `${k.replaceAll('_', ' ')}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' | ')}</div></div>`
+      }
+    }
+
+    return `
+      <div class="step-block">
+        <div class="step-header">
+          <span class="step-num">${String(idx + 1).padStart(2, '0')}.</span>
+          <span class="step-title">${t.title}</span>
+          <span class="step-badge">${t.status}</span>
+        </div>
+        <div class="step-desc">${t.description}</div>
+        ${evidenceHtml ? `<div class="step-values">${evidenceHtml}</div>` : ''}
+      </div>
+    `
+  }).join('')
+
+  const auditHtml = audit.map((a) => `
+    <div class="audit-row">
+      <span class="audit-time">${dateLabel(a.created_at)}</span>
+      <span class="audit-type">${a.event_type.replaceAll('_', ' ')}</span>
+      <span class="audit-actor">${a.actor}</span>
+    </div>
+  `).join('')
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Workflow_${workflow.id.slice(0, 8)}</title>
+        <style>
+          @page { size: A4; margin: 15mm; }
+          body { font-family: system-ui, -apple-system, sans-serif; color: #1e293b; line-height: 1.5; padding: 20px; font-size: 11px; }
+          .header { border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px; }
+          .title { font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0; }
+          .meta-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 10px; }
+          .meta-item strong { display: block; color: #64748b; font-size: 8px; text-transform: uppercase; font-family: monospace; }
+          .section-title { font-size: 12px; font-weight: 700; color: #0f172a; margin: 20px 0 10px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; font-family: monospace; }
+          .step-block { margin-bottom: 12px; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; background: #ffffff; page-break-inside: avoid; }
+          .step-header { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+          .step-num { font-weight: 700; color: #475569; font-family: monospace; }
+          .step-title { font-size: 11px; font-weight: 700; color: #0f172a; flex: 1; }
+          .step-badge { font-size: 8px; padding: 2px 6px; border-radius: 4px; background: #f1f5f9; font-weight: 600; text-transform: uppercase; font-family: monospace; }
+          .step-desc { color: #64748b; font-size: 10px; margin-bottom: 6px; }
+          .step-values { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+          .val-card { padding: 8px 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 10px; }
+          .val-title { font-weight: 700; color: #0f172a; margin-bottom: 3px; }
+          .val-row { color: #334155; margin-bottom: 2px; }
+          .audit-row { display: flex; gap: 14px; padding: 5px 0; border-bottom: 1px solid #f1f5f9; font-size: 9px; }
+          .audit-time { color: #64748b; width: 120px; font-family: monospace; }
+          .audit-type { font-weight: 600; color: #0f172a; width: 220px; text-transform: capitalize; }
+          .audit-actor { color: #475569; flex: 1; }
+          .footer { margin-top: 24px; font-size: 8px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 8px; font-family: monospace; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="title">${workflow.objective}</div>
+          <div class="meta-grid">
+            <div class="meta-item"><strong>WORKFLOW ID</strong>${workflow.id.slice(0, 8).toUpperCase()}</div>
+            <div class="meta-item"><strong>STATUS</strong>${workflow.status}</div>
+            <div class="meta-item"><strong>CREATED</strong>${formattedDate}</div>
+            <div class="meta-item"><strong>EXPORTED</strong>${exportDate}</div>
+          </div>
+        </div>
+
+        <div class="section-title">EXECUTION VALUES</div>
+        ${taskHtml || '<p>No execution steps recorded.</p>'}
+
+        <div class="section-title">AUDIT VALUES LOG</div>
+        <div class="audit-list-export">
+          ${auditHtml || '<p>No audit events recorded.</p>'}
+        </div>
+
+        <div class="footer">Kaiten Business Workflow Automation Report · Only Values Export</div>
+        <script>
+          window.onload = function() {
+            window.print();
+          };
+        </script>
+      </body>
+    </html>
+  `
+
+  printWindow.document.write(htmlContent)
+  printWindow.document.close()
 }
 
 function PasswordInput({ containerClassName = '', className = '', ...props }: React.InputHTMLAttributes<HTMLInputElement> & { containerClassName?: string }) {

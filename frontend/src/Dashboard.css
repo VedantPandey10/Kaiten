@@ -52,6 +52,9 @@ h1 { margin-top: 15px; color: #1d3028; font-family: var(--display); font-size: 3
 .primary-button { display: inline-flex; min-height: 39px; align-items: center; justify-content: center; gap: 8px; padding: 0 15px; border: 0; border-radius: 6px; color: #fbfcf7; background: #29453a; font-size: 11px; font-weight: 600; cursor: pointer; transition: background .18s ease, transform .18s ease; }
 .primary-button:hover { transform: translateY(-1px); background: #1d392e; }
 .primary-button:disabled { transform: none; cursor: not-allowed; opacity: .55; }
+.secondary-button { display: inline-flex; min-height: 32px; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; border: 1px solid #dce2d8; border-radius: 5px; color: #425749; background: #ffffff; font-size: 10px; font-weight: 600; cursor: pointer; transition: background .15s ease, color .15s ease, border-color .15s ease; }
+.secondary-button:hover { border-color: #29453a; color: #1d392e; background: #f4f7f1; }
+.detail-actions { display: flex; align-items: center; gap: 8px; }
 .notice { display: flex; align-items: center; gap: 11px; margin-bottom: 16px; padding: 12px 14px; border: 1px solid; border-radius: 6px; font-size: 12px; }
 .notice > div { display: grid; flex: 1; gap: 3px; }
 .notice strong { font-size: 11px; }
