@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
   Activity, ArrowRight, BarChart3, Bot, Check, CircleAlert, Clock3,
   FilePlus2, FileText, Headphones, Layers3, ListTodo, LoaderCircle, LogOut,
-  KeyRound, Pencil, Play, Plus, RefreshCw, Search, ShieldCheck, ScrollText, Sparkles, Trash2,
+  KeyRound, Eye, EyeOff, Pencil, Play, Plus, RefreshCw, Search, ShieldCheck, ScrollText, Sparkles, Trash2,
   UserRoundCog, Users, X, Zap,
 } from 'lucide-react'
 import {
@@ -420,6 +420,29 @@ function BusinessCommand({ busy, writable, onCreate }: { busy: boolean; writable
   </main>
 }
 
+function PasswordInput({ containerClassName = '', className = '', ...props }: React.InputHTMLAttributes<HTMLInputElement> & { containerClassName?: string }) {
+  const [showPassword, setShowPassword] = useState(false)
+  return (
+    <div className={`password-input-wrapper ${containerClassName}`}>
+      <input
+        {...props}
+        className={`password-input-field ${className}`}
+        type={showPassword ? 'text' : 'password'}
+      />
+      <button
+        type="button"
+        className="password-toggle-btn"
+        onClick={() => setShowPassword(!showPassword)}
+        tabIndex={-1}
+        aria-label={showPassword ? 'Hide password' : 'Show password'}
+        title={showPassword ? 'Hide password' : 'Show password'}
+      >
+        {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+      </button>
+    </div>
+  )
+}
+
 function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession, rememberMe: boolean) => void }) {
   type AuthMode = 'login' | 'admin-login' | 'bootstrap' | 'register' | 'admin-register'
   const [mode, setMode] = useState<AuthMode>(() => {
@@ -522,7 +545,7 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession,
       {(mode === 'bootstrap' || mode === 'register' || mode === 'admin-register') && <label>Full name<input autoComplete="name" onChange={(event) => setName(event.target.value)} required value={name} /></label>}
       {(mode === 'bootstrap' || mode === 'register' || mode === 'admin-register') && <label>Company<input autoComplete="organization" onChange={(event) => setCompany(event.target.value)} required value={company} /></label>}
       <label>Work email<input autoComplete="username" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} /></label>
-      <label>Password<input autoComplete={mode === 'login' || mode === 'admin-login' ? 'current-password' : 'new-password'} minLength={mode === 'login' || mode === 'admin-login' ? undefined : 8} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} />{(mode === 'bootstrap' || mode === 'admin-register') && <small>At least 8 characters. This one-time admin account is active immediately.</small>}{mode === 'register' && <small>At least 8 characters. Access is pending admin approval.</small>}</label>
+      <label>Password<PasswordInput autoComplete={mode === 'login' || mode === 'admin-login' ? 'current-password' : 'new-password'} minLength={mode === 'login' || mode === 'admin-login' ? undefined : 8} onChange={(event) => setPassword(event.target.value)} required value={password} />{(mode === 'bootstrap' || mode === 'admin-register') && <small>At least 8 characters. This one-time admin account is active immediately.</small>}{mode === 'register' && <small>At least 8 characters. Access is pending admin approval.</small>}</label>
       {(mode === 'login' || mode === 'admin-login') && <div className="auth-options"><label className="remember-me"><input checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} type="checkbox" />Remember me</label><span>Forgot password? Ask a workspace admin to reset it in People.</span></div>}
       {mode === 'login' && <a className="owner-register-link" href="?register=1">Request user access</a>}
       <button className="primary-button auth-submit" disabled={busy} type="submit">{busy ? <LoaderCircle className="spin" size={16} /> : mode === 'bootstrap' || mode === 'admin-register' ? <ShieldCheck size={16} /> : mode === 'register' ? <Users size={16} /> : <ArrowRight size={16} />}{mode === 'bootstrap' || mode === 'admin-register' ? 'Create administrator' : mode === 'register' ? 'Request workspace access' : mode === 'admin-login' ? 'Admin sign in' : 'Sign in'}</button>
@@ -594,7 +617,7 @@ function PeopleDialog({ users, companyName, onClose, onError, onReset, onUsersCh
     } catch (cause) { onError(cause instanceof Error ? cause.message : 'Could not delete account.') }
   }
 
-  return <Dialog title="Workspace access" onClose={onClose} wide><div className="people-layout"><section className="people-list"><div className="people-list-heading"><span>{users.length} ACCOUNTS</span><span>ROLE ACCESS</span></div>{users.map((person) => <article className="person-row" key={person.id}><span className="person-avatar">{person.name.slice(0, 1).toUpperCase()}</span><div className="person-details"><strong>{person.name}</strong><small>{person.email}</small><span className="person-company">{person.company}</span><span className={person.is_active ? 'account-state enabled' : 'account-state'}>{person.is_active ? 'Active' : 'Disabled'}</span></div><select aria-label={`Role for ${person.name}`} className="role-select" disabled={!person.is_active} onChange={(event) => void changeRole(person, event.target.value as Role)} value={person.role}>{allRoles.map((item) => <option key={item} value={item}>{roleNames[item]}</option>)}</select><button className="icon-button" aria-label={`Reset password for ${person.name}`} onClick={() => onReset(person)} type="button"><KeyRound size={14} /></button><button className="icon-button" aria-label={`${person.is_active ? 'Disable' : 'Enable'} ${person.name}`} onClick={() => void toggleActive(person)} type="button"><UserRoundCog size={14} /></button><button className="icon-button danger-icon" aria-label={`Remove ${person.name}`} onClick={() => void removeUser(person)} type="button"><Trash2 size={14} /></button></article>)}</section><form className="add-user-form" onSubmit={(event) => void addUser(event)}><div className="section-kicker">ADD ACCOUNT</div><label className="form-label">NAME<input className="dialog-input" onChange={(event) => setName(event.target.value)} required value={name} /></label><label className="form-label">COMPANY<input className="dialog-input" readOnly value={companyName} /></label><label className="form-label">EMAIL<input className="dialog-input" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} /></label><label className="form-label">TEMPORARY PASSWORD<input className="dialog-input" minLength={12} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></label><label className="form-label">ROLE<select className="dialog-input" onChange={(event) => setRole(event.target.value as Role)} value={role}>{allRoles.filter((item) => item !== 'ADMIN').map((item) => <option key={item} value={item}>{roleNames[item]}</option>)}</select></label><button className="primary-button add-user-submit" disabled={busy} type="submit">{busy ? <LoaderCircle className="spin" size={15} /> : <Plus size={15} />}Create account</button><p className="form-footnote">Account changes take effect immediately. An active admin account is always required.</p></form></div></Dialog>
+  return <Dialog title="Workspace access" onClose={onClose} wide><div className="people-layout"><section className="people-list"><div className="people-list-heading"><span>{users.length} ACCOUNTS</span><span>ROLE ACCESS</span></div>{users.map((person) => <article className="person-row" key={person.id}><span className="person-avatar">{person.name.slice(0, 1).toUpperCase()}</span><div className="person-details"><strong>{person.name}</strong><small>{person.email}</small><span className="person-company">{person.company}</span><span className={person.is_active ? 'account-state enabled' : 'account-state'}>{person.is_active ? 'Active' : 'Disabled'}</span></div><select aria-label={`Role for ${person.name}`} className="role-select" disabled={!person.is_active} onChange={(event) => void changeRole(person, event.target.value as Role)} value={person.role}>{allRoles.map((item) => <option key={item} value={item}>{roleNames[item]}</option>)}</select><button className="icon-button" aria-label={`Reset password for ${person.name}`} onClick={() => onReset(person)} type="button"><KeyRound size={14} /></button><button className="icon-button" aria-label={`${person.is_active ? 'Disable' : 'Enable'} ${person.name}`} onClick={() => void toggleActive(person)} type="button"><UserRoundCog size={14} /></button><button className="icon-button danger-icon" aria-label={`Remove ${person.name}`} onClick={() => void removeUser(person)} type="button"><Trash2 size={14} /></button></article>)}</section><form className="add-user-form" onSubmit={(event) => void addUser(event)}><div className="section-kicker">ADD ACCOUNT</div><label className="form-label">NAME<input className="dialog-input" onChange={(event) => setName(event.target.value)} required value={name} /></label><label className="form-label">COMPANY<input className="dialog-input" readOnly value={companyName} /></label><label className="form-label">EMAIL<input className="dialog-input" onChange={(event) => setEmail(event.target.value)} required type="email" value={email} /></label><label className="form-label">TEMPORARY PASSWORD<PasswordInput className="dialog-input" minLength={12} onChange={(event) => setPassword(event.target.value)} required value={password} /></label><label className="form-label">ROLE<select className="dialog-input" onChange={(event) => setRole(event.target.value as Role)} value={role}>{allRoles.filter((item) => item !== 'ADMIN').map((item) => <option key={item} value={item}>{roleNames[item]}</option>)}</select></label><button className="primary-button add-user-submit" disabled={busy} type="submit">{busy ? <LoaderCircle className="spin" size={15} /> : <Plus size={15} />}Create account</button><p className="form-footnote">Account changes take effect immediately. An active admin account is always required.</p></form></div></Dialog>
 }
 
 function PasswordResetDialog({ user, onClose, onSave }: { user: User; onClose: () => void; onSave: (password: string) => Promise<void> }) {
@@ -611,7 +634,7 @@ function PasswordResetDialog({ user, onClose, onSave }: { user: User; onClose: (
     finally { setBusy(false) }
   }
 
-  return <Dialog title={`Reset password for ${user.name}`} onClose={onClose}><form className="record-form" onSubmit={(event) => void submit(event)}>{error && <div className="auth-error" role="alert"><CircleAlert size={15} />{error}</div>}<label className="form-label">NEW PASSWORD<input autoComplete="new-password" className="dialog-input" minLength={12} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></label><div className="dialog-footer"><span>At least 12 characters</span><button className="primary-button" disabled={busy} type="submit">{busy ? <LoaderCircle className="spin" size={15} /> : <KeyRound size={15} />}Reset password</button></div></form></Dialog>
+  return <Dialog title={`Reset password for ${user.name}`} onClose={onClose}><form className="record-form" onSubmit={(event) => void submit(event)}>{error && <div className="auth-error" role="alert"><CircleAlert size={15} />{error}</div>}<label className="form-label">NEW PASSWORD<PasswordInput autoComplete="new-password" className="dialog-input" minLength={12} onChange={(event) => setPassword(event.target.value)} required value={password} /></label><div className="dialog-footer"><span>At least 12 characters</span><button className="primary-button" disabled={busy} type="submit">{busy ? <LoaderCircle className="spin" size={15} /> : <KeyRound size={15} />}Reset password</button></div></form></Dialog>
 }
 
 function Dialog({ title, onClose, children, wide = false }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {

@@ -85,6 +85,11 @@
 .auth-form > label { display: grid; gap: 6px; margin-top: 14px; color: #566459; font-size: 10px; font-weight: 600; }
 .auth-form > label input { height: 39px; padding: 0 10px; border: 1px solid #dfe4dc; border-radius: 5px; outline: none; color: #34463a; background: #fff; font-size: 11px; }
 .auth-form > label input:focus { border-color: #879b66; box-shadow: 0 0 0 3px #9aad791d; }
+.password-input-wrapper { position: relative; width: 100%; display: flex; align-items: center; }
+.password-input-field { padding-right: 36px !important; width: 100%; }
+.password-toggle-btn { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: none; background: transparent; color: #7d887e; cursor: pointer; border-radius: 4px; transition: color 0.15s ease, background-color 0.15s ease; z-index: 2; }
+.password-toggle-btn:hover { color: #26392f; background: rgba(0, 0, 0, 0.06); }
+.password-toggle-btn:focus-visible { outline: 2px solid #879b66; }
 .auth-form > label small { color: #959f96; font-size: 8px; font-weight: 400; }
 .auth-submit { width: 100%; margin-top: 22px; }
 .owner-register-link { display: block; width: fit-content; margin: 12px auto -8px; padding: 4px 8px; color: #59755c; background: transparent; font-size: 10px; text-decoration: none; }
