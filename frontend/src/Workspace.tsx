@@ -526,7 +526,7 @@ function AuthGate({ onAuthenticated }: { onAuthenticated: (session: AuthSession,
       {(mode === 'login' || mode === 'admin-login') && <div className="auth-options"><label className="remember-me"><input checked={rememberMe} onChange={(event) => setRememberMe(event.target.checked)} type="checkbox" />Remember me</label><span>Forgot password? Ask a workspace admin to reset it in People.</span></div>}
       {mode === 'login' && <a className="owner-register-link" href="?register=1">Request user access</a>}
       <button className="primary-button auth-submit" disabled={busy} type="submit">{busy ? <LoaderCircle className="spin" size={16} /> : mode === 'bootstrap' || mode === 'admin-register' ? <ShieldCheck size={16} /> : mode === 'register' ? <Users size={16} /> : <ArrowRight size={16} />}{mode === 'bootstrap' || mode === 'admin-register' ? 'Create administrator' : mode === 'register' ? 'Request workspace access' : mode === 'admin-login' ? 'Admin sign in' : 'Sign in'}</button>
-      {mode === 'login' && adminRegistrationAvailable && isLocalHost && <button className="auth-mode-button" onClick={() => changeMode('admin-register')} type="button">Register the first administrator</button>}
+      {(mode === 'login' || mode === 'admin-login') && adminRegistrationAvailable && <button className="auth-mode-button" onClick={() => changeMode('admin-register')} type="button">Register the first administrator</button>}
       {mode === 'login' && isLocalHost && <button className="auth-mode-button" onClick={() => changeMode('bootstrap')} type="button">First-time setup</button>}
     </form><div className="auth-security"><ShieldCheck size={14} />Roles are enforced by the API, not only by the interface.</div></div></main>
 }

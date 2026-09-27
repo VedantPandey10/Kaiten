@@ -206,8 +206,13 @@ def create_app(database_url: str | None = None) -> FastAPI:
     @app.post("/api/auth/login", response_model=TokenRead)
     def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenRead:
         user = db.scalar(select(User).where(User.email == str(payload.email).lower()))
-        if user is None or not user.is_active or not verify_password(payload.password, user.password_hash):
+        if user is None or not verify_password(payload.password, user.password_hash):
             raise HTTPException(status_code=401, detail="Email or password is incorrect.")
+        if not user.is_active:
+            raise HTTPException(
+                status_code=401,
+                detail="Your account is pending administrator activation. Please contact your workspace administrator.",
+            )
         return TokenRead(access_token=create_access_token(user), user=user)
 
     @app.get("/api/auth/me", response_model=UserRead)
